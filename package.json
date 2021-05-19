@@ -1,0 +1,148 @@
+{
+	"name": "provenance-code-extension",
+	"displayName": "Provenance Visual Studio Code Extension",
+	"description": "Provides functionality for developing smart contracts on the Provenance blockchain.",
+	"version": "0.0.1",
+	"engines": {
+		"vscode": "^1.56.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"*",
+		"onCommand:provenance-code-extension.build",
+		"onCommand:provenance-code-extension.compile",
+		"onCommand:provenance-code-extension.contract-info",
+		"onCommand:provenance-code-extension.instantiate-or-migrate",
+		"onCommand:provenance-code-extension.open-terminal",
+		"onCommand:provenance-code-extension.run",
+		"onCommand:provenance-code-extension.store"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "provenance-code-extension.build",
+				"title": "Provenance: Build & Upload Smart Contract"
+			},
+			{
+				"command": "provenance-code-extension.compile",
+				"title": "Provenance: Compile Smart Contract"
+			},
+			{
+				"command": "provenance-code-extension.contract-info",
+				"title": "Provenance: Contract Info"
+			},
+			{
+				"command": "provenance-code-extension.instantiate-or-migrate",
+				"title": "Provenance: Instantiate or Migrate Smart Contract"
+			},
+			{
+				"command": "provenance-code-extension.open-terminal",
+				"title": "Provenance: Open Terminal"
+			},
+			{
+				"command": "provenance-code-extension.run",
+				"title": "Provenance: Run Smart Contract"
+			},
+			{
+				"command": "provenance-code-extension.store",
+				"title": "Provenance: Store Smart Contract"
+			}
+		],
+		"configuration": {
+			"title": "Provenance",
+			"properties": {
+				"provenance.adminAddress": {
+					"type": "string",
+					"default": "",
+					"description": "Address of an admin (--admin)."
+			  	},
+				"provenance.broadcastMode": {
+					"type": "string",
+					"default": "block",
+					"enum": ["sync", "async", "block"],
+					"enumDescriptions": [
+						"Broadcasts the transaction in sync mode.",
+						"Broadcasts the transaction in async mode.",
+						"Broadcasts the transaction in block mode."
+					],
+					"description": "Transaction broadcasting mode (--broadcast-mode)."
+			  	},
+				"provenance.chainId": {
+					"type": "string",
+					"default": "chain-local",
+					"description": "The network chain ID (--chain-id)."
+			  	},
+				"provenance.clientBinary": {
+					"type": "string",
+					"default": "provenanced",
+					"description": "The path to the provenanced client binary."
+			  	},
+				"provenance.defaultFees": {
+					"type": "number",
+					"default": 40000,
+					"description": "Default fees to pay along with transaction in nhash (--fees)."
+				},
+				"provenance.gasLimit": {
+					"type": "string",
+					"default": "auto",
+					"description": "Gas limit to set per-transaction. Set to 'auto' to calculate sufficient gas automatically (--gas)."
+				},
+				"provenance.homeDir": {
+					"type": "string",
+					"default": "",
+					"description": "Local directory for config and data. Defaults to '~/Library/Application Support/Provenance' (--home)."
+			  	},
+				"provenance.keyringBackend": {
+					"type": "string",
+					"default": "test",
+					"enum": ["os", "file", "kwallet", "pass", "test", "memory"],
+					"description": "The keyring's backend (--keyring-backend)."
+			  	},
+				"provenance.keyringDirectory": {
+					"type": "string",
+					"default": "",
+					"description": "The client Keyring directory. If omitted, the default 'home' directory will be used (--keyring-dir)."
+			  	},
+				"provenance.nodeHostAddress": {
+					"type": "string",
+					"default": "",
+					"description": "Node host address (tcp://<host>:<port>) to tendermint rpc interface for this chain (--node)."
+				},
+			  	"provenance.signingPrivateKey": {
+					"type": "string",
+					"default": "node0",
+					"description": "Name or address of private key with which to sign transaction (--from)."
+			  	},
+				"provenance.testNet": {
+					"type": "boolean",
+					"default": true,
+					"description": "Indicates this command should use the testnet configuration (--test-net)."
+				}
+			}
+		}
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./",
+		"pretest": "npm run compile && npm run lint",
+		"lint": "eslint src --ext ts",
+		"test": "node ./out/test/runTest.js"
+	},
+	"devDependencies": {
+		"@types/vscode": "^1.56.0",
+		"@types/glob": "^7.1.3",
+		"@types/mocha": "^8.0.4",
+		"@types/node": "^12.11.7",
+		"eslint": "^7.19.0",
+		"@typescript-eslint/eslint-plugin": "^4.14.1",
+		"@typescript-eslint/parser": "^4.14.1",
+		"glob": "^7.1.6",
+		"mocha": "^8.2.1",
+		"typescript": "^4.1.3",
+		"vscode-test": "^1.5.0"
+	}
+}
