@@ -1,12 +1,19 @@
 import * as vscode from 'vscode';
 import * as glob from 'glob';
 
-import { Utils } from './utils';
+import { Utils, SmartContractFunctions } from './utils';
 import { Provenance, ProvenanceConfig } from './ProvenanceClient'
+
+import { RunPanelViewLoader, RunViewAppBinding } from './webviews/run-panel/RunPanelViewLoader';
+
+import { SmartContractFunction } from './webviews/run-panel/app/smart-contract-function';
 
 let provenance: Provenance = new Provenance();
 let lastWasmCodeId: number = -1;
 let isBusy: boolean = false;
+
+let runPanelView: RunPanelViewLoader;
+let runViewApp: RunViewAppBinding;
 
 const buildWasmCommand = 'provenance-code-extension.build';
 const compileWasmCommand = 'provenance-code-extension.compile';
@@ -24,26 +31,6 @@ var runWasmStatusBarItem: vscode.StatusBarItem;
 var showContractInfoStatusBarItem: vscode.StatusBarItem;
 var openTerminalStatusBarItem: vscode.StatusBarItem;
 var rightStatusBarSepItem: vscode.StatusBarItem;
-
-var runPanel: (vscode.WebviewPanel | undefined);
-
-function loadProvenanceConfig(): Promise<ProvenanceConfig> {
-	const promise = new Promise<ProvenanceConfig>((resolve, reject) => {
-		vscode.workspace.findFiles('provenance-config.json', '/', 1).then((foundFiles: vscode.Uri[]) => {
-			if (foundFiles && foundFiles.length > 0) {
-				vscode.workspace.openTextDocument(foundFiles[0]).then((provConfigDoc) => {
-					let projectConfig: ProvenanceConfig = JSON.parse(provConfigDoc.getText());
-					// TODO: validate projectConfig???
-					resolve(projectConfig);
-				});
-			} else {
-				reject(new Error("Workspace does not contain a 'provenance-config.json' file."));
-			}
-		});
-	});
-	
-	return promise;
-}
 
 function compileWasm(): Promise<void> {
 	const promise = new Promise<void>((resolve, reject) => {
@@ -79,7 +66,7 @@ function storeWasm(): Promise<number> {
 function instantiateOrMigrateWasm(codeId: number): Promise<void> {
 	const promise = new Promise<void>((resolve, reject) => {
 		// load the provenance config for the project
-		loadProvenanceConfig().then((config: ProvenanceConfig) => {
+		Utils.loadProvenanceConfig().then((config: ProvenanceConfig) => {
 			// find the latest code id for the contract by its label
 			provenance.getLatestCodeIdByContractLabel(config.contractLabel).then((latestCodeId: number) => {
 				console.log(`Latest codeId for ${config.contractLabel} is ${latestCodeId}`);
@@ -200,7 +187,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 		const console = Utils.getConsole();
 
-		loadProvenanceConfig().then((config) => {
+		Utils.loadProvenanceConfig().then((config) => {
 			provenance.getContractByContractLabel(config.contractLabel).then((contract) => {
 				console.appendLine(`Contract address: ${contract.address}`);
 				// TODO
@@ -232,30 +219,74 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	let run = vscode.commands.registerCommand(runWasmCommand, () => {
-		if (!runPanel) {
-			loadProvenanceConfig().then((config: ProvenanceConfig) => {
-				runPanel = vscode.window.createWebviewPanel(
-					'provenance',
-					`Provenance: ${config.contractLabel}`,
-					vscode.ViewColumn.Beside,
-					{}
-				);
+		Utils.loadProvenanceConfig().then((config: ProvenanceConfig) => {
+			runViewApp = RunViewAppBinding.getCodeInstance(runPanelView.showView(`Provenance: ${config.contractLabel}`));
 
-				runPanel.onDidDispose(() => {
-					// TODO
+			runViewApp.waitForReady().then(() => {
+				console.log('Run view ready!');
 
-					runPanel = undefined;
-				}, null, context.subscriptions);
+				// load contract function info from JSON schemas
+				Utils.loadContractFunctions().then((funcs: SmartContractFunctions) => {
+					console.log('Setting...');
+					runViewApp.executeFunctions = funcs.executeFunctions;
+					runViewApp.queryFunctions = funcs.queryFunctions;
+				}).catch((err) => {
+					vscode.window.showErrorMessage(err.message);
+				});
 
-				runPanel.reveal();
-				updateRunPanel();
-			}).catch((err) => {
-				vscode.window.showErrorMessage(err.message);
+				// hook up execute function request handler
+				runViewApp.onExecuteRequest((func: SmartContractFunction, args: any, resolve: ((result: any) => void), reject: ((err: Error) => void)) => {
+					console.log('onExecuteRequest');
+					
+					var execMsg: {[k: string]: any} = {};
+					execMsg[func.name] = args;
+
+					Utils.loadProvenanceConfig().then((config) => {
+						provenance.getContractByContractLabel(config.contractLabel).then((contract) => {
+							provenance.execute(contract, execMsg).then((result: any) => {
+								resolve(result);
+							}).catch((err) => {
+								vscode.window.showErrorMessage(err.message);
+								reject(err);
+							});
+						}).catch((err) => {
+							vscode.window.showErrorMessage(err.message);
+							reject(err);
+						});
+					}).catch((err: Error) => {
+						vscode.window.showErrorMessage(err.message);
+						reject(err);
+					});
+				});
+
+				// hook up query function request handler
+				runViewApp.onQueryRequest((func: SmartContractFunction, args: any, resolve: ((result: any) => void), reject: ((err: Error) => void)) => {
+					console.log('onQueryRequest');
+
+					var queryMsg: {[k: string]: any} = {};
+					queryMsg[func.name] = args;
+
+					Utils.loadProvenanceConfig().then((config) => {
+						provenance.getContractByContractLabel(config.contractLabel).then((contract) => {
+							provenance.query(contract, queryMsg).then((result: any) => {
+								resolve(result);
+							}).catch((err) => {
+								vscode.window.showErrorMessage(err.message);
+								reject(err);
+							});
+						}).catch((err) => {
+							vscode.window.showErrorMessage(err.message);
+							reject(err);
+						});
+					}).catch((err: Error) => {
+						vscode.window.showErrorMessage(err.message);
+						reject(err);
+					});
+				});
 			});
-		} else {
-			runPanel.reveal();
-			updateRunPanel();
-		}
+		}).catch((err) => {
+			vscode.window.showErrorMessage(err.message);
+		});
 	});
 
 	let store = vscode.commands.registerCommand(storeWasmCommand, () => {
@@ -299,6 +330,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// update status bar item once at start
 	updateStatusBar();
+
+	// create the Run View Panel
+	runPanelView = new RunPanelViewLoader(context.extensionPath, context);
 }
 
 function updateStatusBar(): void {
@@ -330,13 +364,6 @@ function updateStatusBar(): void {
 
 	rightStatusBarSepItem.text = '|';
 	rightStatusBarSepItem.show();
-}
-
-function updateRunPanel(): void {
-	if (runPanel) {
-		runPanel.webview.html = '<html><head></head><body><h1>Hi</h1></body></html>';
-		// TODO: dynamically generate webview content from json schemas (section for execute and queries)
-	}
 }
 
 // this method is called when your extension is deactivated

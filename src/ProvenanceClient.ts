@@ -69,6 +69,7 @@ class ProvenanceSettings {
 }
 
 enum ProvenanceCommand {
+	Query = "query",
 	TX = "tx",
 }
 
@@ -89,6 +90,16 @@ enum WASMTransactionCommand {
 	Migrate = "migrate",
 	SetContractAdmin = "set-contract-admin",
 	Store = "store",
+}
+
+enum WASMQueryCommand {
+	ContractState = "contract-state"
+}
+
+enum WASMContractStateCommand {
+	All = "all",
+	Raw = "raw",
+	Smart = "smart"
 }
 
 enum NameTransactionCommand {
@@ -257,6 +268,67 @@ export class Provenance {
 		return promise;
 	}
 
+	execute(contract: Contract, execMsg: any): Promise<any> {
+		const promise = new Promise<void>((resolve, reject) => {
+			// reload the settings
+			this.loadSettings();
+
+			// build the command
+			const command = this.buildCommandArray([
+				ProvenanceCommand.TX, 
+				TransactionCommand.WASM, 
+				WASMTransactionCommand.Execute, 
+				contract.address,
+				`${JSON.stringify(execMsg)}`
+			], {}, true);
+
+			let result: any = {};
+			let result_data: string = '';
+			Utils.runCommandWithArray(command, (data: string) => {
+				result_data = result_data + data;
+			}).then (() => {
+				result = JSON.parse(result_data);
+				resolve(result);
+			}).catch((err) => {
+				reject(new Error("Failed to execute the contract"));
+			});
+		});
+
+		return promise
+	}
+
+	query(contract: Contract, queryMsg: any): Promise<any> {
+		const promise = new Promise<void>((resolve, reject) => {
+			// reload the settings
+			this.loadSettings();
+
+			// build the command
+			const command = this.buildCommand([
+				ProvenanceCommand.Query, 
+				TransactionCommand.WASM, 
+				WASMQueryCommand.ContractState, 
+				WASMContractStateCommand.Smart,
+				contract.address,
+				`${JSON.stringify(queryMsg)}`
+			], {
+				'-o': 'json'
+			}, false, true);
+
+			let result: any = {};
+			let result_data: string = '';
+			Utils.runCommand(command, (data: string) => {
+				result_data = result_data + data;
+			}).then (() => {
+				result = JSON.parse(result_data);
+				resolve(result);
+			}).catch((err) => {
+				reject(new Error("Failed to query the contract"));
+			});
+		});
+
+		return promise
+	}
+
 	getAddressForKey(key: string): string {
 		const address = child_process.execSync(`${this.settings.clientBinary || 'provenanced'} keys show -a ${key} --home ${this.settings.homeDir} ${this.settings.testNet ? ProvenanceClientFlags.TestNet : ''}`);
 		return address.toString().trim();
@@ -359,7 +431,11 @@ export class Provenance {
 		return promise;
 	}
 
-	private buildCommand(commands: string[], args: any = {}, skipPrompt: boolean = true): string {
+	private buildCommand(commands: string[], args: any = {}, skipPrompt: boolean = true, isQuery: boolean = false): string {
+		return this.buildCommandArray(commands, args, skipPrompt, isQuery).join(' ');
+	}
+
+	private buildCommandArray(commands: string[], args: any = {}, skipPrompt: boolean = true, isQuery: boolean = false): string[] {
 		let cmd: string[] = [];
 
 		// the provenanced client
@@ -372,26 +448,58 @@ export class Provenance {
 
 		// add the subcommand specific arguments
 		for (let key in args) {
+			/*
 			cmd.push(`${key} ${args[key]}`);
+			*/
+			cmd.push(key);
+			cmd.push(args[key]);
 		}
 
 		// add the generic arguments
-		if (this.settings.adminAddress) { cmd.push(`${ProvenanceClientFlags.Admin} ${this.settings.adminAddress}`); }
-		if (this.settings.broadcastMode) { cmd.push(`${ProvenanceClientFlags.BroadcastMode} ${this.settings.broadcastMode}`); }
+		/*
+		if (!isQuery) {
+			if (this.settings.adminAddress) { cmd.push(`${ProvenanceClientFlags.Admin} ${this.settings.adminAddress}`); }
+			if (this.settings.broadcastMode) { cmd.push(`${ProvenanceClientFlags.BroadcastMode} ${this.settings.broadcastMode}`); }
+		}
 		if (this.settings.chainId) { cmd.push(`${ProvenanceClientFlags.ChainId} ${this.settings.chainId}`); }
-		if (this.settings.defaultFees) { cmd.push(`${ProvenanceClientFlags.Fees} ${this.settings.defaultFees.toString()}nhash`); } // TODO: only for TX?
-		if (this.settings.gasLimit) { cmd.push(`${ProvenanceClientFlags.Gas} ${this.settings.gasLimit}`); }
+		if (!isQuery) {
+			if (this.settings.defaultFees) { cmd.push(`${ProvenanceClientFlags.Fees} ${this.settings.defaultFees.toString()}nhash`); } // TODO: only for TX?
+			if (this.settings.gasLimit) { cmd.push(`${ProvenanceClientFlags.Gas} ${this.settings.gasLimit}`); }
+		}
 		if (this.settings.homeDir) { cmd.push(`${ProvenanceClientFlags.Home} ${this.settings.homeDir}`); }
-		if (this.settings.keyringBackend) { cmd.push(`${ProvenanceClientFlags.KeyringBackend} ${this.settings.keyringBackend}`); }
-		if (this.settings.keyringDirectory) { cmd.push(`${ProvenanceClientFlags.KeyringDir} ${this.settings.keyringDirectory}`); }
+		if (!isQuery) {
+			if (this.settings.keyringBackend) { cmd.push(`${ProvenanceClientFlags.KeyringBackend} ${this.settings.keyringBackend}`); }
+			if (this.settings.keyringDirectory) { cmd.push(`${ProvenanceClientFlags.KeyringDir} ${this.settings.keyringDirectory}`); }
+		}
 		if (this.settings.nodeHostAddress) { cmd.push(`${ProvenanceClientFlags.Node} ${this.settings.nodeHostAddress}`); }
-		if (this.settings.signingPrivateKey) { cmd.push(`${ProvenanceClientFlags.From} ${this.settings.signingPrivateKey}`); }
+		if (!isQuery) {
+			if (this.settings.signingPrivateKey) { cmd.push(`${ProvenanceClientFlags.From} ${this.settings.signingPrivateKey}`); }
+		}
+		*/
+		if (!isQuery) {
+			if (this.settings.adminAddress) { cmd.push(ProvenanceClientFlags.Admin); cmd.push(this.settings.adminAddress); }
+			if (this.settings.broadcastMode) { cmd.push(ProvenanceClientFlags.BroadcastMode); cmd.push(this.settings.broadcastMode); }
+		}
+		if (this.settings.chainId) { cmd.push(ProvenanceClientFlags.ChainId); cmd.push(this.settings.chainId); }
+		if (!isQuery) {
+			if (this.settings.defaultFees) { cmd.push(ProvenanceClientFlags.Fees); cmd.push(`${this.settings.defaultFees.toString()}nhash`); } // TODO: only for TX?
+			if (this.settings.gasLimit) { cmd.push(ProvenanceClientFlags.Gas); cmd.push(this.settings.gasLimit.toString()); }
+		}
+		if (this.settings.homeDir) { cmd.push(ProvenanceClientFlags.Home); cmd.push(this.settings.homeDir); }
+		if (!isQuery) {
+			if (this.settings.keyringBackend) { cmd.push(ProvenanceClientFlags.KeyringBackend); cmd.push(this.settings.keyringBackend); }
+			if (this.settings.keyringDirectory) { cmd.push(ProvenanceClientFlags.KeyringDir); cmd.push(this.settings.keyringDirectory); }
+		}
+		if (this.settings.nodeHostAddress) { cmd.push(ProvenanceClientFlags.Node); cmd.push(this.settings.nodeHostAddress); }
+		if (!isQuery) {
+			if (this.settings.signingPrivateKey) { cmd.push(ProvenanceClientFlags.From); cmd.push(this.settings.signingPrivateKey); }
+		}
 
 		// add flags
 		if (this.settings.testNet) { cmd.push(ProvenanceClientFlags.TestNet); }
-		if (skipPrompt) { cmd.push(ProvenanceClientFlags.Yes); }
+		if (skipPrompt && !isQuery) { cmd.push(ProvenanceClientFlags.Yes); }
 
-		return cmd.join(' ');
+		return cmd;
 	}
 
 	loadSettings(dumpToConsole: boolean = false) {

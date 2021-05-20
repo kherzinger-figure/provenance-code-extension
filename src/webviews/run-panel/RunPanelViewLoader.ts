@@ -1,0 +1,75 @@
+import * as vscode from 'vscode';
+import * as path from 'path';
+
+export * from './app/app-binding';
+
+export class RunPanelViewLoader {
+
+    private panel: (vscode.WebviewPanel | undefined) = undefined;
+    private extPath: string = '';
+    private context: vscode.ExtensionContext;
+
+    constructor(extPath: string, context: vscode.ExtensionContext) {
+        this.extPath = extPath;
+        this.context = context;
+    }
+
+    showView(title: string): vscode.Webview {
+        if (!this.panel) {
+            this.panel = vscode.window.createWebviewPanel(
+                'provenance',
+                title,
+                vscode.ViewColumn.Beside,
+                {
+                    enableScripts: true,
+                    localResourceRoots: [
+                        vscode.Uri.file(path.join(this.extPath, "build/run-panel"))
+                    ]
+                }
+            );
+
+            this.panel.onDidDispose(() => {
+                // TODO
+
+                this.panel = undefined;
+            }, null, this.context.subscriptions);
+
+            this.panel.reveal();
+            this.update();
+
+            return this.panel.webview;
+        } else {
+            this.panel.reveal();
+			this.update();
+
+            return this.panel.webview;
+        }
+    }
+
+    update() {
+        if (this.panel) {
+            const reactAppPathOnDisk = vscode.Uri.file(path.join(this.extPath, "build/run-panel", "runPanel.js"));
+            const reactAppUri = reactAppPathOnDisk.with({ scheme: "vscode-resource" });
+          
+            this.panel.webview.html = `
+                <!DOCTYPE html>
+                <html lang="en">
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Config View</title>
+                        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https:; script-src 'unsafe-eval' 'unsafe-inline' vscode-resource:; style-src vscode-resource: 'unsafe-inline';">
+                        <script>
+                            window.acquireVsCodeApi = acquireVsCodeApi;
+                        </script>
+                    </head>
+                    <body>
+                        <div id="root"></div>
+                        <script src="${reactAppUri}"></script>
+                    </body>
+                </html>
+            `;
+        }
+    }
+
+}

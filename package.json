@@ -58,28 +58,32 @@
 					"type": "string",
 					"default": "",
 					"description": "Address of an admin (--admin)."
-			  	},
+				},
 				"provenance.broadcastMode": {
 					"type": "string",
 					"default": "block",
-					"enum": ["sync", "async", "block"],
+					"enum": [
+						"sync",
+						"async",
+						"block"
+					],
 					"enumDescriptions": [
 						"Broadcasts the transaction in sync mode.",
 						"Broadcasts the transaction in async mode.",
 						"Broadcasts the transaction in block mode."
 					],
 					"description": "Transaction broadcasting mode (--broadcast-mode)."
-			  	},
+				},
 				"provenance.chainId": {
 					"type": "string",
 					"default": "chain-local",
 					"description": "The network chain ID (--chain-id)."
-			  	},
+				},
 				"provenance.clientBinary": {
 					"type": "string",
 					"default": "provenanced",
 					"description": "The path to the provenanced client binary."
-			  	},
+				},
 				"provenance.defaultFees": {
 					"type": "number",
 					"default": 40000,
@@ -94,28 +98,35 @@
 					"type": "string",
 					"default": "",
 					"description": "Local directory for config and data. Defaults to '~/Library/Application Support/Provenance' (--home)."
-			  	},
+				},
 				"provenance.keyringBackend": {
 					"type": "string",
 					"default": "test",
-					"enum": ["os", "file", "kwallet", "pass", "test", "memory"],
+					"enum": [
+						"os",
+						"file",
+						"kwallet",
+						"pass",
+						"test",
+						"memory"
+					],
 					"description": "The keyring's backend (--keyring-backend)."
-			  	},
+				},
 				"provenance.keyringDirectory": {
 					"type": "string",
 					"default": "",
 					"description": "The client Keyring directory. If omitted, the default 'home' directory will be used (--keyring-dir)."
-			  	},
+				},
 				"provenance.nodeHostAddress": {
 					"type": "string",
 					"default": "",
 					"description": "Node host address (tcp://<host>:<port>) to tendermint rpc interface for this chain (--node)."
 				},
-			  	"provenance.signingPrivateKey": {
+				"provenance.signingPrivateKey": {
 					"type": "string",
 					"default": "node0",
 					"description": "Name or address of private key with which to sign transaction (--from)."
-			  	},
+				},
 				"provenance.testNet": {
 					"type": "boolean",
 					"default": true,
@@ -126,23 +137,48 @@
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
-		"compile": "tsc -p ./",
-		"watch": "tsc -watch -p ./",
+		"compile": "npm-run-all compile:*",
+		"watch": "npm-run-all -p watch:*",
+		"compile:extension": "tsc -p ./",
+		"compile:views": "webpack --mode development",
+		"watch:extension": "tsc -watch -p ./",
+		"watch:views": "webpack --watch --mode development",
+		"postinstall": "node ./node_modules/vscode/bin/install",
 		"pretest": "npm run compile && npm run lint",
 		"lint": "eslint src --ext ts",
-		"test": "node ./out/test/runTest.js"
+		"test": "npm run compile && node ./out/test/runTest.js"
 	},
 	"devDependencies": {
-		"@types/vscode": "^1.56.0",
 		"@types/glob": "^7.1.3",
 		"@types/mocha": "^8.0.4",
 		"@types/node": "^12.11.7",
-		"eslint": "^7.19.0",
+		"@types/react": "^17.0.6",
+		"@types/react-dom": "^17.0.5",
+		"@types/uuid": "^8.3.0",
+		"@types/vscode": "^1.56.0",
 		"@typescript-eslint/eslint-plugin": "^4.14.1",
 		"@typescript-eslint/parser": "^4.14.1",
+		"css-loader": "^5.2.4",
+		"eslint": "^7.19.0",
 		"glob": "^7.1.6",
 		"mocha": "^8.2.1",
+		"npm-run-all": "^4.1.5",
+		"style-loader": "^2.0.0",
+		"ts-loader": "^9.2.1",
 		"typescript": "^4.1.3",
-		"vscode-test": "^1.5.0"
+		"vscode-test": "^1.5.0",
+		"webpack": "^5.37.1",
+		"webpack-cli": "^4.7.0"
+	},
+	"dependencies": {
+		"bootstrap": "^4.6.0",
+		"react": "^17.0.2",
+		"react-bootstrap": "^1.6.0",
+		"react-dom": "^17.0.2",
+		"react-icons": "^4.2.0",
+		"react-json-view": "^1.21.3",
+		"react-redux": "^7.2.4",
+		"rxjs": "^7.0.1",
+		"uuid": "^8.3.2"
 	}
 }
