@@ -1,9 +1,11 @@
 import * as React from "react";
+import './app.scss';
 
 import { Container } from 'react-bootstrap';
 import { SmartContractFunction } from './smart-contract-function';
 import { RunViewAppBinding, Event, Command } from './app-binding';
 
+import SmartContractInfoView from './smart-contract-info-view';
 import SmartContractFunctionsView from './smart-contract-functions-view';
 
 declare global {
@@ -54,17 +56,19 @@ export class App extends React.Component<AppProps, AppState> {
             command: Command.Ready,
             data: undefined
         };
+        console.log('POSTING READY EVENT');
         vscode.postMessage(readyMessage);
     }
 
     render() {
         return (
-            <Container fluid>
-                <h1>Execute</h1>
+            <Container className="rootContainer" fluid>
+                <SmartContractInfoView></SmartContractInfoView>
+                <h2>Execute</h2>
                 <hr/>
                 <SmartContractFunctionsView functions={this.state.executeFunctions}></SmartContractFunctionsView>
                 <br/>
-                <h1>Query</h1>
+                <h2>Query</h2>
                 <hr/>
                 <SmartContractFunctionsView functions={this.state.queryFunctions}></SmartContractFunctionsView>
             </Container>

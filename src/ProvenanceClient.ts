@@ -7,8 +7,13 @@ interface ProvenanceNameBindingConfig {
 	root: string
 }
 
+interface ProvenanceBuildConfig {
+	target: string
+}
+
 export interface ProvenanceConfig {
 	contractLabel: string
+	build: ProvenanceBuildConfig,
 	binding: ProvenanceNameBindingConfig,
 	initArgs: any
 }
@@ -448,34 +453,11 @@ export class Provenance {
 
 		// add the subcommand specific arguments
 		for (let key in args) {
-			/*
-			cmd.push(`${key} ${args[key]}`);
-			*/
 			cmd.push(key);
 			cmd.push(args[key]);
 		}
 
 		// add the generic arguments
-		/*
-		if (!isQuery) {
-			if (this.settings.adminAddress) { cmd.push(`${ProvenanceClientFlags.Admin} ${this.settings.adminAddress}`); }
-			if (this.settings.broadcastMode) { cmd.push(`${ProvenanceClientFlags.BroadcastMode} ${this.settings.broadcastMode}`); }
-		}
-		if (this.settings.chainId) { cmd.push(`${ProvenanceClientFlags.ChainId} ${this.settings.chainId}`); }
-		if (!isQuery) {
-			if (this.settings.defaultFees) { cmd.push(`${ProvenanceClientFlags.Fees} ${this.settings.defaultFees.toString()}nhash`); } // TODO: only for TX?
-			if (this.settings.gasLimit) { cmd.push(`${ProvenanceClientFlags.Gas} ${this.settings.gasLimit}`); }
-		}
-		if (this.settings.homeDir) { cmd.push(`${ProvenanceClientFlags.Home} ${this.settings.homeDir}`); }
-		if (!isQuery) {
-			if (this.settings.keyringBackend) { cmd.push(`${ProvenanceClientFlags.KeyringBackend} ${this.settings.keyringBackend}`); }
-			if (this.settings.keyringDirectory) { cmd.push(`${ProvenanceClientFlags.KeyringDir} ${this.settings.keyringDirectory}`); }
-		}
-		if (this.settings.nodeHostAddress) { cmd.push(`${ProvenanceClientFlags.Node} ${this.settings.nodeHostAddress}`); }
-		if (!isQuery) {
-			if (this.settings.signingPrivateKey) { cmd.push(`${ProvenanceClientFlags.From} ${this.settings.signingPrivateKey}`); }
-		}
-		*/
 		if (!isQuery) {
 			if (this.settings.adminAddress) { cmd.push(ProvenanceClientFlags.Admin); cmd.push(this.settings.adminAddress); }
 			if (this.settings.broadcastMode) { cmd.push(ProvenanceClientFlags.BroadcastMode); cmd.push(this.settings.broadcastMode); }

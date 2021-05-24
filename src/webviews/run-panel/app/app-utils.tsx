@@ -7,6 +7,11 @@ export default class Utils {
         return snakeCaseString.replace(/([-_]\w)/g, g => g[1].toUpperCase());
     }
 
+    static snakeToTitle (snakeCaseString: string) {
+        const camel = Utils.snakeToCamel(snakeCaseString);
+        return camel.charAt(0).toUpperCase() + camel.slice(1);
+    }
+
     static runFunction (func: SmartContractFunction, args: any): Promise<any> {
         switch (func.type) {
             case SmartContractFunctionType.Execute: {

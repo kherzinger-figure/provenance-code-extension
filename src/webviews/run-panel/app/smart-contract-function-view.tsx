@@ -1,10 +1,11 @@
 import * as React from "react";
-import './smart-contract-function-view.css';
+import './smart-contract-function-view.scss';
 
 import ReactJson from "react-json-view";
 import { FaPlay, FaSpinner } from 'react-icons/fa';
 import { Accordion, Card, Form, Button } from 'react-bootstrap';
-import SmartContractPropertyView from './smart-contract-property-view';
+
+import { SmartContractPropertyView } from './smart-contract-property-view';
 
 import Utils from './app-utils';
 import { SmartContractFunction, SmartContractFunctionType } from './smart-contract-function';
@@ -48,20 +49,20 @@ export default class SmartContractFunctionView extends React.Component<SmartCont
 
         return (
             <React.Fragment>
-                <Card>
-                    <Accordion.Toggle as={Card.Header} eventKey={index.toString()}>{Utils.snakeToCamel(func.name)}</Accordion.Toggle>
+                <Card className="scFunction">
+                    <Accordion.Toggle as={Card.Header} eventKey={index.toString()} className="noselect">{Utils.snakeToTitle(func.name)}</Accordion.Toggle>
                     <Accordion.Collapse eventKey={index.toString()}>
                         <Card.Body>
-                            <h4>Arguments</h4><hr/>
+                            <h4>Arguments</h4><hr className="scFunctionHR"/>
                             <Form>
                                 {this.props.function.properties.map((prop, idx) =>
                                     <SmartContractPropertyView property={prop} index={idx} ref={(c) => { this._propertyViews[prop.name] = c; }}></SmartContractPropertyView>
                                 )}
                             </Form>
-                            <Button variant={this.state.busy ? "secondary" : "success"} type="button" className="pull-right" disabled={this.state.busy} onClick={this.runSmartContract}>
+                            <Button variant="primary" type="button" className="pull-right" disabled={this.state.busy} onClick={this.runSmartContract}>
                                 {renderRunButtonContents()}
                             </Button>
-                            <h4>Result</h4><hr/>
+                            <h4>Result</h4><hr className="scFunctionHR"/>
                             <ReactJson src={this.state.result} theme="ocean" collapsed={2} />
                         </Card.Body>
                     </Accordion.Collapse>
@@ -94,3 +95,26 @@ export default class SmartContractFunctionView extends React.Component<SmartCont
     }
 
 }
+
+/*
+            <React.Fragment>
+                <Card className="scFunction">
+                    <Accordion.Toggle as={Card.Header} eventKey={index.toString()} className="noselect">{Utils.snakeToTitle(func.name)}</Accordion.Toggle>
+                    <Accordion.Collapse eventKey={index.toString()}>
+                        <Card.Body>
+                            <h4>Arguments</h4><hr className="scFunctionHR"/>
+                            <Form>
+                                {this.props.function.properties.map((prop, idx) =>
+                                    <SmartContractPropertyView property={prop} index={idx} ref={(c) => { this._propertyViews[prop.name] = c; }}></SmartContractPropertyView>
+                                )}
+                            </Form>
+                            <Button variant="primary" type="button" className="pull-right" disabled={this.state.busy} onClick={this.runSmartContract}>
+                                {renderRunButtonContents()}
+                            </Button>
+                            <h4>Result</h4><hr className="scFunctionHR"/>
+                            <ReactJson src={this.state.result} theme="ocean" collapsed={2} />
+                        </Card.Body>
+                    </Accordion.Collapse>
+                </Card>
+            </React.Fragment>
+*/

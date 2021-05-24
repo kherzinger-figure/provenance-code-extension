@@ -4,7 +4,8 @@ import * as glob from 'glob';
 import { Utils, SmartContractFunctions } from './utils';
 import { Provenance, ProvenanceConfig } from './ProvenanceClient'
 
-import { RunPanelViewLoader, RunViewAppBinding } from './webviews/run-panel/RunPanelViewLoader';
+import { RunViewAppBinding } from './webviews/run-panel/app/app-binding';
+import { RunPanelViewLoader } from './webviews/run-panel/RunPanelViewLoader';
 
 import { SmartContractFunction } from './webviews/run-panel/app/smart-contract-function';
 
@@ -34,10 +35,14 @@ var rightStatusBarSepItem: vscode.StatusBarItem;
 
 function compileWasm(): Promise<void> {
 	const promise = new Promise<void>((resolve, reject) => {
-		Utils.runCommand('make').then(() => {
-			resolve();
-		}).catch((err) => {
-			reject(new Error('Failed to compile WASM'));
+		Utils.loadProvenanceConfig().then((config: ProvenanceConfig) => {
+			Utils.runCommand(`make ${config.build.target}`).then(() => {
+				resolve();
+			}).catch((err) => {
+				reject(new Error('Failed to compile WASM'));
+			});
+		}).catch((err: Error) => {
+			reject(err);
 		});
 	});
 
@@ -221,6 +226,10 @@ export function activate(context: vscode.ExtensionContext) {
 	let run = vscode.commands.registerCommand(runWasmCommand, () => {
 		Utils.loadProvenanceConfig().then((config: ProvenanceConfig) => {
 			runViewApp = RunViewAppBinding.getCodeInstance(runPanelView.showView(`Provenance: ${config.contractLabel}`));
+			runPanelView.onDispose(() => {
+				console.log('runPanelView.onDispose');
+				runViewApp.unready();
+			});
 
 			runViewApp.waitForReady().then(() => {
 				console.log('Run view ready!');

@@ -78,6 +78,7 @@ export class RunViewAppBinding {
     private _executeFunctions: BehaviorSubject<SmartContractFunction[]> = new BehaviorSubject<SmartContractFunction[]>([]);
     private _queryFunctions: BehaviorSubject<SmartContractFunction[]> = new BehaviorSubject<SmartContractFunction[]>([]);
 
+    /*
     private constructor(webview: (vscode.Webview | undefined), codevs: any) {
         this._webview = webview;
         this._vscode = codevs;
@@ -87,6 +88,9 @@ export class RunViewAppBinding {
             });
         }
     }
+    */
+
+    private constructor() { }
 
     eventListener(event: any) {
         console.dir(event);
@@ -97,6 +101,10 @@ export class RunViewAppBinding {
                 this.handleMessageFromCode(event.data as Event);
             }
         }
+    }
+
+    unready() {
+        this.isReady.next(false);
     }
 
     private handleMessageFromReact(event: Event) {
@@ -257,7 +265,14 @@ export class RunViewAppBinding {
 
     public static getCodeInstance(webview: vscode.Webview): RunViewAppBinding {
         if (!RunViewAppBinding.instance) {
-            RunViewAppBinding.instance = new RunViewAppBinding(webview, undefined);
+            RunViewAppBinding.instance = new RunViewAppBinding();
+        }
+
+        RunViewAppBinding.instance._webview = webview;
+        if (RunViewAppBinding.instance._webview) {
+            RunViewAppBinding.instance._webview.onDidReceiveMessage((event: any) => {
+                RunViewAppBinding.instance.eventListener(event);
+            });
         }
 
         return RunViewAppBinding.instance;
@@ -265,7 +280,11 @@ export class RunViewAppBinding {
 
     public static getReactInstance(codevs: any = undefined): RunViewAppBinding {
         if (!RunViewAppBinding.instance) {
-            RunViewAppBinding.instance = new RunViewAppBinding(undefined, codevs);
+            RunViewAppBinding.instance = new RunViewAppBinding();
+        }
+
+        if (codevs) {
+            RunViewAppBinding.instance._vscode = codevs;
         }
 
         return RunViewAppBinding.instance;

@@ -1,54 +1,75 @@
 import * as React from "react";
-import { v4 as uuidv4 } from 'uuid';
-
-import { Form, Col, Row, InputGroup, Button } from 'react-bootstrap';
 import { SmartContractFunctionProperty } from './smart-contract-function';
+import SmartContractArrayPropertyView from './smart-contract-array-property-view';
+import SmartContractIntegerPropertyView from './smart-contract-integer-property-view';
+import SmartContractNumberPropertyView from './smart-contract-number-property-view';
+import SmartContractStringPropertyView from './smart-contract-string-property-view';
+
+import './smart-contract-property-view.scss';
+
+export interface ISmartContractPropertyView {
+    isValid(): boolean;
+    toJSON(): any;
+}
 
 interface SmartContractPropertyViewProps {
     property: SmartContractFunctionProperty,
     index: number
 }
 
-export default class SmartContractPropertyView extends React.Component<SmartContractPropertyViewProps> {
+export class SmartContractPropertyView extends React.Component<SmartContractPropertyViewProps> implements ISmartContractPropertyView {
 
     constructor(props: any) {
         super(props);
-
-        this.generateUuid = this.generateUuid.bind(this);
     }
 
     _input;
+    _propertyView: ISmartContractPropertyView;
 
     render() {
-        //const index = this.props.index;
         const prop = this.props.property;
+        const idx = this.props.index;
+
+        let propComponent;
+        if (this.props.property.type == 'string') {
+            propComponent = <SmartContractStringPropertyView property={prop} index={idx} ref={(c) => { this._propertyView = c; }}></SmartContractStringPropertyView>;
+        } else if (this.props.property.type == 'number') {
+            propComponent = <SmartContractNumberPropertyView property={prop} index={idx} ref={(c) => { this._propertyView = c; }}></SmartContractNumberPropertyView>;
+        } else if (this.props.property.type == 'integer') {
+            propComponent = <SmartContractIntegerPropertyView property={prop} index={idx} ref={(c) => { this._propertyView = c; }}></SmartContractIntegerPropertyView>;
+        } else if (this.props.property.type == 'object') {
+            // TODO
+            propComponent = <span>Unimplemented data type</span>
+        } else if (this.props.property.type == 'array') {
+            propComponent = <SmartContractArrayPropertyView property={prop} index={idx} ref={(c) => { this._propertyView = c; }}></SmartContractArrayPropertyView>;
+        } else if (this.props.property.type == 'boolean') {
+            //propComponent = <SmartContractBoolPropertyView property={prop} index={idx} ref={(c) => { this._propertyView = c; }}></SmartContractBoolPropertyView>;
+            // TODO
+            propComponent = <span>Unimplemented data type</span>
+        } else if (this.props.property.type == 'null') {
+            // TODO
+            propComponent = <span>Unimplemented data type</span>
+        }
 
         return (
             <React.Fragment>
-                <Form.Group as={Row} controlId="todo">
-                    <Form.Label column sm={2}>{prop.name}</Form.Label>
-                    <Col sm={10}>
-                        <InputGroup className="mb-3">
-                            <Form.Control type="text" placeholder="" ref={(c) => this._input = c} />
-                            <InputGroup.Append>
-                                <Button variant="outline-secondary" onClick={this.generateUuid}>UUID</Button>
-                            </InputGroup.Append>
-                        </InputGroup>
-                    </Col>
-                </Form.Group>
+                {propComponent}
             </React.Fragment>
         );
     }
 
-    private generateUuid() {
-        this._input.value = uuidv4();
-    }
-
     isValid(): boolean {
-        // TODO
-        return false;
+        return (this._propertyView ? this._propertyView.isValid() : true);
     }
 
+    toJSON(): any {
+        return (this._propertyView ? this._propertyView.toJSON() : null);
+    }
+
+}
+
+
+/*
     toJSON(): any {
         var json: any;
 
@@ -71,5 +92,4 @@ export default class SmartContractPropertyView extends React.Component<SmartCont
 
         return json;
     }
-
-}
+*/

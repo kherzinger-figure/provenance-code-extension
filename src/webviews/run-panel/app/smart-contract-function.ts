@@ -7,6 +7,7 @@ export interface SmartContractFunctionProperty {
     name: string,
     type: string,
     required: boolean,
+    items: string,
     properties: SmartContractFunctionProperty[]
 }
 

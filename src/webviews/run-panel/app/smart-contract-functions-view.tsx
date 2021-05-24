@@ -1,9 +1,9 @@
 import * as React from "react";
-
 import { Accordion } from 'react-bootstrap';
 import { SmartContractFunction } from './smart-contract-function';
-
 import SmartContractFunctionView from './smart-contract-function-view';
+
+import './smart-contract-functions-view.scss';
 
 interface SmartContractFunctionsViewProps {
     functions: SmartContractFunction[]

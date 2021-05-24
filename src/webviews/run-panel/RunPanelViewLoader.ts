@@ -1,13 +1,12 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 
-export * from './app/app-binding';
-
 export class RunPanelViewLoader {
 
     private panel: (vscode.WebviewPanel | undefined) = undefined;
     private extPath: string = '';
     private context: vscode.ExtensionContext;
+    private disposeHandler: ((() => void) | undefined) = undefined;
 
     constructor(extPath: string, context: vscode.ExtensionContext) {
         this.extPath = extPath;
@@ -29,8 +28,9 @@ export class RunPanelViewLoader {
             );
 
             this.panel.onDidDispose(() => {
-                // TODO
-
+                if (this.disposeHandler != undefined) {
+                    this.disposeHandler();
+                }
                 this.panel = undefined;
             }, null, this.context.subscriptions);
 
@@ -70,6 +70,10 @@ export class RunPanelViewLoader {
                 </html>
             `;
         }
+    }
+
+    onDispose(disposeHandler: (() => void)) {
+        this.disposeHandler = disposeHandler;
     }
 
 }

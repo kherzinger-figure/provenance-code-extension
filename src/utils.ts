@@ -15,6 +15,7 @@ class JSONSchemaSmartContractFunctionProperty implements SmartContractFunctionPr
     name: string = '';
     type: string = '';
     required: boolean = false;
+    items: string = '';
     properties: SmartContractFunctionProperty[] = [];
 
     constructor(jsonSchema: any) {
@@ -23,6 +24,8 @@ class JSONSchemaSmartContractFunctionProperty implements SmartContractFunctionPr
         this.type = jsonSchema.type;
         if (this.type == 'object') {
             this.properties = JSONSchemaSmartContractFunctionProperty.parseObjectProperties(jsonSchema.properties);
+        } else if (this.type == 'array') {
+            this.items = jsonSchema.items.type;
         }
     }
 
@@ -178,6 +181,11 @@ export class Utils {
 
     static snakeToCamel (snakeCaseString: string) {
         return snakeCaseString.replace(/([-_]\w)/g, g => g[1].toUpperCase());
+    }
+
+    static snakeToTitle (snakeCaseString: string) {
+        const camel = Utils.snakeToCamel(snakeCaseString);
+        return camel.charAt(0).toUpperCase() + camel.slice(1);
     }
 
     static async loadContractFunctions(): Promise<SmartContractFunctions> {
