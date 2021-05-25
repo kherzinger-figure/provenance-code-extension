@@ -1,14 +1,15 @@
 import * as React from "react";
-import './smart-contract-function-view.scss';
-
 import ReactJson from "react-json-view";
+import AceEditor from "react-ace";
+import "ace-builds/src-noconflict/mode-json";
+import "ace-builds/src-noconflict/theme-twilight";
 import { FaPlay, FaSpinner } from 'react-icons/fa';
-import { Accordion, Card, Form, Button } from 'react-bootstrap';
-
+import { Card, Form, Button, Tabs, Tab, Container, Row, Col } from 'react-bootstrap';
 import { SmartContractPropertyView } from './smart-contract-property-view';
-
 import Utils from './app-utils';
-import { SmartContractFunction, SmartContractFunctionType } from './smart-contract-function';
+import { SmartContractFunction, SmartContractFunctionType, SmartContractFunctionProperty } from './smart-contract-function';
+
+import './smart-contract-function-view.scss';
 
 interface SmartContractFunctionViewProps {
     function: SmartContractFunction,
@@ -17,7 +18,8 @@ interface SmartContractFunctionViewProps {
 
 interface SmartContractFunctionViewState {
     busy: boolean,
-    result: any
+    result: any,
+    activeKey: string
 }
 
 export default class SmartContractFunctionView extends React.Component<SmartContractFunctionViewProps, SmartContractFunctionViewState> {
@@ -29,15 +31,19 @@ export default class SmartContractFunctionView extends React.Component<SmartCont
 
         this.state = {
             busy: false,
-            result: {}
+            result: {},
+            activeKey: 'builder'
         }
+
+        this._jsonRefName = React.createRef();
     }
 
+    _jsonRefName;
     _propertyViews: {[k: string]: SmartContractPropertyView} = {};
 
     render() {
-        const index = this.props.index;
         const func = this.props.function;
+        //const idx = this.props.index;
 
         const renderRunButtonContents = () => {
             if (!this.state.busy) {
@@ -47,44 +53,140 @@ export default class SmartContractFunctionView extends React.Component<SmartCont
             }
         }
 
-        return (
-            <React.Fragment>
-                <Card className="scFunction">
-                    <Accordion.Toggle as={Card.Header} eventKey={index.toString()} className="noselect">{Utils.snakeToTitle(func.name)}</Accordion.Toggle>
-                    <Accordion.Collapse eventKey={index.toString()}>
-                        <Card.Body>
-                            <h4>Arguments</h4><hr className="scFunctionHR"/>
+        const renderFunctionParametersContents = () => {
+            if (this.props.function.properties.length > 0) {
+                return <Tabs id="sc-function" variant="pills" activeKey={this.state.activeKey} onSelect={setActiveKey}>
+                    <Tab title="Builder" eventKey="builder" active={isActiveKey("builder")}>
+                        <div className="paramsPane">
                             <Form>
                                 {this.props.function.properties.map((prop, idx) =>
                                     <SmartContractPropertyView property={prop} index={idx} ref={(c) => { this._propertyViews[prop.name] = c; }}></SmartContractPropertyView>
                                 )}
                             </Form>
-                            <Button variant="primary" type="button" className="pull-right" disabled={this.state.busy} onClick={this.runSmartContract}>
-                                {renderRunButtonContents()}
-                            </Button>
-                            <h4>Result</h4><hr className="scFunctionHR"/>
-                            <ReactJson src={this.state.result} theme="ocean" collapsed={2} />
-                        </Card.Body>
-                    </Accordion.Collapse>
+                        </div>
+                    </Tab>
+                    <Tab title="JSON" eventKey="json" active={isActiveKey("json")}>
+                        <div className="paramsPane">
+                            <AceEditor
+                                mode="json"
+                                theme="twilight"
+                                name="json-editor"
+                                editorProps={{ $blockScrolling: true }}
+                                tabSize={2}
+                                className="paramsJSONEditor"
+                                ref={this._jsonRefName}
+                                style={{width: "auto"}}
+                            />
+                        </div>
+                    </Tab>
+                </Tabs>;
+            } else {
+                return <div className="noParams">No Parameters</div>;
+            }
+        }
+
+        const toDefaultJSON = (props: SmartContractFunctionProperty[]) => {
+            var defObj: {[k: string]: any} = {};
+            props.forEach((prop) => {
+                if (prop.type == 'string') {
+                    defObj[prop.name] = '';
+                } else if (prop.type == 'number') {
+                    defObj[prop.name] = 0;
+                } else if (prop.type == 'integer') {
+                    defObj[prop.name] = 0;
+                } else if (prop.type == 'object') {
+                    defObj[prop.name] = toDefaultJSON(prop.properties);
+                } else if (prop.type == 'array') {
+                    defObj[prop.name] = [];
+                } else if (prop.type == 'boolean') {
+                    defObj[prop.name] = false;
+                } else if (prop.type == 'null') {
+                    defObj[prop.name] = null;
+                }
+            });
+            return defObj;
+        }
+
+        const setActiveKey = (k) => {
+            this.setState({ activeKey: k });
+            if (k == 'json') {
+                /*
+                if (this._jsonRefName.current.editor.getValue().length == 0) {
+                    console.log('SET DEFAULT JSON');
+                    const func = this.props.function;
+                    this._jsonRefName.current.editor.setValue(JSON.stringify(toDefaultJSON(func.properties), null, 2), 1);
+                } else {
+                    console.log('SET JSON FROM BUILDER');
+                    var builderJSON: {[k: string]: any} = {};
+                    for (var key in this._propertyViews) {
+                        builderJSON[key] = this._propertyViews[key].toJSON();
+                    }
+                    this._jsonRefName.current.editor.setValue(JSON.stringify(builderJSON, null, 2), 1);
+                }
+                */
+
+                console.log('SET JSON FROM BUILDER');
+                var builderJSON: {[k: string]: any} = {};
+                for (var key in this._propertyViews) {
+                    builderJSON[key] = this._propertyViews[key].toJSON();
+                }
+                this._jsonRefName.current.editor.setValue(JSON.stringify(builderJSON, null, 2), 1);
+            } else {
+                console.log('SET BUILDER FROM JSON');
+                // TODO
+            }
+        };
+
+        const isActiveKey = (k) => {
+            return (this.state.activeKey == k);
+        };
+
+        return (
+            <React.Fragment>
+                <Card className="scFunction">
+                    <Card.Header>{Utils.snakeToTitle(func.name)}</Card.Header>
+                    <Card.Body>
+                        <Container className="sectionHeader" >
+                            <Row className="clearfix align-items-center">
+                                <Col><h5 className="sectionHeaderTitle">Parameters</h5></Col>
+                                <Col>
+                                    <Button variant="primary" type="button" className="float-right" disabled={this.state.busy} onClick={this.runSmartContract}>
+                                        {renderRunButtonContents()}
+                                    </Button>
+                                </Col>
+                            </Row>
+                        </Container>
+                        <hr className="scFunctionHR"/>
+                        {renderFunctionParametersContents()}
+                        <h5>Result</h5><hr className="scFunctionHR"/>
+                        <ReactJson src={this.state.result} theme="ocean" collapsed={2} />
+                    </Card.Body>
                 </Card>
             </React.Fragment>
         );
     }
 
+
+
     private runSmartContract() {
         console.log(`Run smart contract function: ${this.props.function.name}`);
 
-        this.setState({ busy: true });
+        this.setState({ 
+            busy: true,
+            result: {}
+        });
 
-        // TODO: validate the properties?
-
-        // build the message
         var funcMessage: {[k: string]: any} = {};
-        for (var key in this._propertyViews) {
-            funcMessage[key] = this._propertyViews[key].toJSON();
+        if (this.state.activeKey == 'json') {
+            funcMessage = JSON.parse(this._jsonRefName.current.editor.getValue());
+        } else {
+            // build the message
+            for (var key in this._propertyViews) {
+                funcMessage[key] = this._propertyViews[key].toJSON();
+            }
         }
 
-        this.setState({ result: {} });
+        // TODO: validate the properties?
 
         Utils.runFunction(this.props.function, funcMessage).then((result: any) => {
             this.setState({ busy: false, result: result });
@@ -95,26 +197,3 @@ export default class SmartContractFunctionView extends React.Component<SmartCont
     }
 
 }
-
-/*
-            <React.Fragment>
-                <Card className="scFunction">
-                    <Accordion.Toggle as={Card.Header} eventKey={index.toString()} className="noselect">{Utils.snakeToTitle(func.name)}</Accordion.Toggle>
-                    <Accordion.Collapse eventKey={index.toString()}>
-                        <Card.Body>
-                            <h4>Arguments</h4><hr className="scFunctionHR"/>
-                            <Form>
-                                {this.props.function.properties.map((prop, idx) =>
-                                    <SmartContractPropertyView property={prop} index={idx} ref={(c) => { this._propertyViews[prop.name] = c; }}></SmartContractPropertyView>
-                                )}
-                            </Form>
-                            <Button variant="primary" type="button" className="pull-right" disabled={this.state.busy} onClick={this.runSmartContract}>
-                                {renderRunButtonContents()}
-                            </Button>
-                            <h4>Result</h4><hr className="scFunctionHR"/>
-                            <ReactJson src={this.state.result} theme="ocean" collapsed={2} />
-                        </Card.Body>
-                    </Accordion.Collapse>
-                </Card>
-            </React.Fragment>
-*/

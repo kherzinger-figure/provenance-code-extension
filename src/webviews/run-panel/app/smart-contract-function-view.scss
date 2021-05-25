@@ -1,3 +1,16 @@
+.spinner {
+    animation: spin infinite 5s linear;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .card.scFunction {
     border-color: transparent;
     border: 0px;
@@ -6,7 +19,16 @@
 
 .scFunction .card-header {
     background-color: rgb(41, 45, 62);
+    border-radius: 0px;
     color: #fff;
+
+    :first-child {
+        border-radius: 0px;
+    }
+}
+
+.scFunction .card-header:first-child {
+    border-radius: 0px;
 }
 
 .scFunction .card-body {
@@ -16,4 +38,25 @@
 
 .scFunctionHR {
     border-color: #fff;
+}
+
+.paramsPane {
+    padding-top: 20px;
+}
+
+.container.sectionHeader {
+    padding-left: 0px;
+    padding-right: 0px;
+}
+
+.sectionHeaderTitle {
+    margin: 0px auto;
+}
+
+.noParams {
+    margin-bottom: 20px;
+}
+
+.paramsJSONEditor {
+    width: auto;
 }

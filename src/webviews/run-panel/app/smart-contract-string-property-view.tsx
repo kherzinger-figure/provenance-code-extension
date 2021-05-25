@@ -28,8 +28,8 @@ export default class SmartContractStringPropertyView extends React.Component<Sma
         return (
             <React.Fragment>
                 <Form.Group as={Row} controlId={prop.name}>
-                    <Form.Label column sm={2}>{prop.name}</Form.Label>
-                    <Col sm={10}>
+                    <Form.Label column sm={3}>{prop.name}</Form.Label>
+                    <Col sm={9}>
                         <InputGroup className="mb-3">
                             <Form.Control type="text" placeholder="" ref={(c) => this._input = c} />
                             <InputGroup.Append>
