@@ -4,22 +4,25 @@ import AceEditor from "react-ace";
 import "ace-builds/src-noconflict/mode-json";
 import "ace-builds/src-noconflict/theme-twilight";
 import { FaPlay, FaSpinner } from 'react-icons/fa';
-import { Card, Form, Button, Tabs, Tab, Container, Row, Col } from 'react-bootstrap';
+import { Card, Dropdown, DropdownButton, Form, Button, ButtonGroup, Tabs, Tab, Container, Row, Col } from 'react-bootstrap';
 import { SmartContractPropertyView } from './smart-contract-property-view';
 import Utils from './app-utils';
-import { SmartContractFunction, SmartContractFunctionType, SmartContractFunctionProperty } from './smart-contract-function';
+import { SmartContractFunction, SmartContractFunctionProperty, SmartContractFunctionType } from './smart-contract-function';
+import { SigningKey } from './signing-key';
 
 import './smart-contract-function-view.scss';
 
 interface SmartContractFunctionViewProps {
     function: SmartContractFunction,
+    signingKeys: SigningKey[],
     index: number
 }
 
 interface SmartContractFunctionViewState {
     busy: boolean,
     result: any,
-    activeKey: string
+    activeKey: string,
+    signingKey: string
 }
 
 export default class SmartContractFunctionView extends React.Component<SmartContractFunctionViewProps, SmartContractFunctionViewState> {
@@ -32,7 +35,8 @@ export default class SmartContractFunctionView extends React.Component<SmartCont
         this.state = {
             busy: false,
             result: {},
-            activeKey: 'builder'
+            activeKey: 'builder',
+            signingKey: (props.signingKeys[0] ? props.signingKeys[0].name : '')
         }
 
         this._jsonRefName = React.createRef();
@@ -44,12 +48,33 @@ export default class SmartContractFunctionView extends React.Component<SmartCont
     render() {
         const func = this.props.function;
         //const idx = this.props.index;
+        const keys = this.props.signingKeys;
 
         const renderRunButtonContents = () => {
             if (!this.state.busy) {
-                return <span><FaPlay /> {(func.type == SmartContractFunctionType.Execute) ? "Execute" : "Query"}</span>;
+                return <span><FaPlay /></span>;
             } else {
-                return <span><FaSpinner className="spinner" /> {(func.type == SmartContractFunctionType.Execute) ? "Executing..." : "Querying..."}</span>;
+                return <span><FaSpinner className="spinner" /></span>;
+            }
+        }
+
+        const renderRunButtons = () => {
+            if (func.type == SmartContractFunctionType.Execute) {
+                return <ButtonGroup className="float-right">
+                    <Button variant="primary" type="button" disabled={this.state.busy} onClick={this.runSmartContract}>
+                        {renderRunButtonContents()}
+                    </Button>
+                    <DropdownButton as={ButtonGroup} variant="secondary" disabled={this.state.busy} title={this.state.signingKey} id="bg-nested-dropdown">
+                        {keys.map((key, idx) =>
+                            <Dropdown.Item onSelect={setSigningKey} eventKey={key.name}>{key.name}</Dropdown.Item>
+                        )}
+                    </DropdownButton>
+                </ButtonGroup>;
+            }
+            else {
+                return <Button className="float-right" variant="primary" type="button" disabled={this.state.busy} onClick={this.runSmartContract}>
+                    {renderRunButtonContents()}
+                </Button>;
             }
         }
 
@@ -141,6 +166,10 @@ export default class SmartContractFunctionView extends React.Component<SmartCont
             return (this.state.activeKey == k);
         };
 
+        const setSigningKey = (k) => {
+            this.setState({ signingKey: k });
+        };
+
         return (
             <React.Fragment>
                 <Card className="scFunction">
@@ -150,9 +179,7 @@ export default class SmartContractFunctionView extends React.Component<SmartCont
                             <Row className="clearfix align-items-center">
                                 <Col><h5 className="sectionHeaderTitle">Parameters</h5></Col>
                                 <Col>
-                                    <Button variant="primary" type="button" className="float-right" disabled={this.state.busy} onClick={this.runSmartContract}>
-                                        {renderRunButtonContents()}
-                                    </Button>
+                                    {renderRunButtons()}
                                 </Col>
                             </Row>
                         </Container>
@@ -188,7 +215,7 @@ export default class SmartContractFunctionView extends React.Component<SmartCont
 
         // TODO: validate the properties?
 
-        Utils.runFunction(this.props.function, funcMessage).then((result: any) => {
+        Utils.runFunction(this.props.function, funcMessage, this.state.signingKey).then((result: any) => {
             this.setState({ busy: false, result: result });
         }).catch((err) => {
             console.log(`Error executing function ${this.props.function.name}: ${err.message}`);

@@ -6,7 +6,9 @@ export class RunPanelViewLoader {
     private panel: (vscode.WebviewPanel | undefined) = undefined;
     private extPath: string = '';
     private context: vscode.ExtensionContext;
+
     private disposeHandler: ((() => void) | undefined) = undefined;
+    private viewStateChangeHandler: ((() => void) | undefined) = undefined;
 
     constructor(extPath: string, context: vscode.ExtensionContext) {
         this.extPath = extPath;
@@ -33,6 +35,12 @@ export class RunPanelViewLoader {
                 }
                 this.panel = undefined;
             }, null, this.context.subscriptions);
+
+            this.panel.onDidChangeViewState(() => {
+                if (this.viewStateChangeHandler != undefined) {
+                    this.viewStateChangeHandler();
+                }
+            });
 
             this.panel.reveal();
             this.update();
@@ -74,6 +82,10 @@ export class RunPanelViewLoader {
 
     onDispose(disposeHandler: (() => void)) {
         this.disposeHandler = disposeHandler;
+    }
+
+    onDidChangeViewState(viewStateChangeHandler: (() => void)) {
+        this.viewStateChangeHandler = viewStateChangeHandler;
     }
 
 }

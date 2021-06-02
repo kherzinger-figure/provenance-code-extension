@@ -2,9 +2,9 @@ import * as vscode from 'vscode';
 import * as glob from 'glob';
 
 import { Utils, SmartContractFunctions } from './utils';
-import { Provenance, ProvenanceConfig } from './ProvenanceClient'
+import { Key, Provenance, ProvenanceConfig } from './ProvenanceClient'
 
-import { RunViewAppBinding } from './webviews/run-panel/app/app-binding';
+import { Alert, RunViewAppBinding } from './webviews/run-panel/app/app-binding';
 import { RunPanelViewLoader } from './webviews/run-panel/RunPanelViewLoader';
 
 import { SmartContractFunction } from './webviews/run-panel/app/smart-contract-function';
@@ -16,13 +16,14 @@ let isBusy: boolean = false;
 let runPanelView: RunPanelViewLoader;
 let runViewApp: RunViewAppBinding;
 
-const buildWasmCommand = 'provenance-code-extension.build';
-const compileWasmCommand = 'provenance-code-extension.compile';
-const contractInfoCommand = 'provenance-code-extension.contract-info';
-const instantiateOrMigrateWasmCommand = 'provenance-code-extension.instantiate-or-migrate';
-const openTerminalCommand = 'provenance-code-extension.open-terminal';
-const runWasmCommand = 'provenance-code-extension.run';
-const storeWasmCommand = 'provenance-code-extension.store';
+const buildWasmCommand = 'provenance.build';
+const compileWasmCommand = 'provenance.compile';
+const contractInfoCommand = 'provenance.contract-info';
+const getKeysCommand = 'provenance.get-keys';
+const instantiateOrMigrateWasmCommand = 'provenance.instantiate-or-migrate';
+const openTerminalCommand = 'provenance.open-terminal';
+const runWasmCommand = 'provenance.run';
+const storeWasmCommand = 'provenance.store';
 
 var leftStatusBarSepItem: vscode.StatusBarItem;
 var provenanceStatusBarItem: vscode.StatusBarItem;
@@ -50,22 +51,30 @@ function compileWasm(): Promise<void> {
 }
 
 function storeWasm(): Promise<number> {
-	const promise = new Promise<number>((resolve, reject) => {
-		glob(`artifacts/*.wasm`, { cwd: Utils.getWorkspaceFolder() }, function (err, files) {
-			if (err || files == undefined || files.length == 0) {
-				reject(new Error('WASM file not found!'));
-			} else {
-				provenance.storeWasm(files[0]).then((codeId: number) => {
-					lastWasmCodeId = codeId;
-					resolve(codeId);
-				}).catch((err: Error) => {
-					reject(err);
+	return new Promise<number>((resolve, reject) => {
+		Utils.loadProvenanceConfig().then((config: ProvenanceConfig) => {
+			var source: string = `https://unknown/url/to/${config.contractLabel}`;
+
+			Utils.getRepoRemoteUrl().then((remoteUrl: string) => {
+				source = remoteUrl;
+			}).catch((err: Error) => {
+			}).finally(() => {
+				glob(`artifacts/*.wasm`, { cwd: Utils.getWorkspaceFolder() }, function (err, files) {
+					if (err || files == undefined || files.length == 0) {
+						reject(new Error('WASM file not found!'));
+					} else {
+						// TODO: get builder???
+						provenance.storeWasm(files[0], source, 'cosmwasm/rust-optimizer:0.10.7').then((codeId: number) => {
+							lastWasmCodeId = codeId;
+							resolve(codeId);
+						}).catch((err: Error) => {
+							reject(err);
+						});
+					}
 				});
-			}
+			});
 		});
 	});
-
-	return promise;
 }
 
 function instantiateOrMigrateWasm(codeId: number): Promise<void> {
@@ -204,6 +213,14 @@ export function activate(context: vscode.ExtensionContext) {
 		});
 	});
 
+	let geyKeys = vscode.commands.registerCommand(getKeysCommand, () => {
+		provenance.getKeys().then((keys: Key[]) => {
+			console.dir(keys);
+		}).catch((err) => {
+			vscode.window.showErrorMessage(err.message);
+		});
+	});
+
 	let instantiateOrMigrate = vscode.commands.registerCommand(instantiateOrMigrateWasmCommand, () => {
 		if (isBusy) {
 			vscode.window.showWarningMessage('Provenance is currently busy');
@@ -230,21 +247,17 @@ export function activate(context: vscode.ExtensionContext) {
 				console.log('runPanelView.onDispose');
 				runViewApp.unready();
 			});
+			runPanelView.onDidChangeViewState(() => {
+				console.log('runPanelView.onDidChangeViewState');
+				updateRunView(config);
+			});
 
 			runViewApp.waitForReady().then(() => {
 				console.log('Run view ready!');
-
-				// load contract function info from JSON schemas
-				Utils.loadContractFunctions().then((funcs: SmartContractFunctions) => {
-					console.log('Setting...');
-					runViewApp.executeFunctions = funcs.executeFunctions;
-					runViewApp.queryFunctions = funcs.queryFunctions;
-				}).catch((err) => {
-					vscode.window.showErrorMessage(err.message);
-				});
+				updateRunView(config);
 
 				// hook up execute function request handler
-				runViewApp.onExecuteRequest((func: SmartContractFunction, args: any, resolve: ((result: any) => void), reject: ((err: Error) => void)) => {
+				runViewApp.onExecuteRequest((func: SmartContractFunction, args: any, key: (string | undefined), resolve: ((result: any) => void), reject: ((err: Error) => void)) => {
 					console.log('onExecuteRequest');
 					
 					var execMsg: {[k: string]: any} = {};
@@ -252,7 +265,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 					Utils.loadProvenanceConfig().then((config) => {
 						provenance.getContractByContractLabel(config.contractLabel).then((contract) => {
-							provenance.execute(contract, execMsg).then((result: any) => {
+							provenance.execute(contract, execMsg, key).then((result: any) => {
 								resolve(result);
 							}).catch((err) => {
 								vscode.window.showErrorMessage(err.message);
@@ -316,6 +329,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(build);
 	context.subscriptions.push(compile);
 	context.subscriptions.push(contractInfo);
+	context.subscriptions.push(geyKeys);
 	context.subscriptions.push(instantiateOrMigrate);
 	context.subscriptions.push(openTerminal);
 	context.subscriptions.push(run);
@@ -373,6 +387,49 @@ function updateStatusBar(): void {
 
 	rightStatusBarSepItem.text = '|';
 	rightStatusBarSepItem.show();
+}
+
+function updateRunView(config: ProvenanceConfig): void {
+	if(runViewApp.isReady) {
+		// hide all alerts first
+		runViewApp.clearAlerts();
+
+		// get contract info
+		provenance.getContractByContractLabel(config.contractLabel).then((contract) => {
+			console.log('Setting contract info...');
+			runViewApp.contractInfo = {
+				name: config.contractLabel,
+				address: contract.address,
+				codeId: contract.contract_info.code_id
+			};
+		}).catch((err) => {
+			console.log('Contract not found...');
+			runViewApp.contractInfo = {
+				name: config.contractLabel,
+				address: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+				codeId: 0
+			};
+
+			runViewApp.showAlert(Alert.Danger, 'Contract not found!', 'Before you can execute the contract, you must first build, store and instantiate it on the Provenance blockchain.', false);
+		});
+
+		// get signing keys
+		provenance.getKeys().then((keys) => {
+			console.log('Setting keys...');
+			runViewApp.signingKeys = keys;
+		}).catch((err) => {
+			vscode.window.showErrorMessage(err.message);
+		});
+
+		// load contract function info from JSON schemas
+		Utils.loadContractFunctions().then((funcs: SmartContractFunctions) => {
+			console.log('Setting contract functions...');
+			runViewApp.executeFunctions = funcs.executeFunctions;
+			runViewApp.queryFunctions = funcs.queryFunctions;
+		}).catch((err) => {
+			vscode.window.showErrorMessage(err.message);
+		});
+	}
 }
 
 // this method is called when your extension is deactivated

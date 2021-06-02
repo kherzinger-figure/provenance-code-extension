@@ -1,9 +1,11 @@
 import * as React from "react";
 import './app.scss';
 
-import { Col, Container, Nav, Row, Tab } from 'react-bootstrap';
+import { Alert, Col, Container, Nav, Row, Tab } from 'react-bootstrap';
+import { SigningKey } from './signing-key';
 import { SmartContractFunction } from './smart-contract-function';
-import { RunViewAppBinding, Event, Command } from './app-binding';
+import { SmartContractInfo } from './smart-contract-info';
+import { AlertEvent, RunViewAppBinding, Event, Command } from './app-binding';
 
 import SmartContractInfoView from './smart-contract-info-view';
 import SmartContractFunctionView from './smart-contract-function-view';
@@ -20,8 +22,11 @@ interface AppProps {
 }
 
 interface AppState {
+    contractInfo: SmartContractInfo,
     executeFunctions: SmartContractFunction[],
     queryFunctions: SmartContractFunction[],
+    signingKeys: SigningKey[],
+    alerts: AlertEvent[],
     activeKey: string
 }
 
@@ -46,10 +51,31 @@ export class App extends React.Component<AppProps, AppState> {
         };
 
         this.state = {
+            contractInfo: this.appBinding.contractInfo,
             executeFunctions: this.appBinding.executeFunctions,
             queryFunctions: this.appBinding.queryFunctions,
+            signingKeys: this.appBinding.signingKeys,
+            alerts: [],
             activeKey: ''
         }
+
+        this.appBinding.contractInfoObservable.subscribe((contractInfo) => {
+            this.setState({
+                contractInfo: contractInfo
+            });
+        });
+
+        this.appBinding.signingKeysObservable.subscribe((signingKeys) => {
+            this.setState({
+                signingKeys: signingKeys
+            });
+        });
+
+        this.appBinding.alertsObservable.subscribe((alerts) => {
+            this.setState({
+                alerts: alerts
+            });
+        });
 
         this.appBinding.executeFunctionsObservable.subscribe((executeFunctions) => {
             this.setState({
@@ -86,10 +112,14 @@ export class App extends React.Component<AppProps, AppState> {
             return (this.state.activeKey == k);
         };
 
+        const clearAlert = (id) => {
+            console.log(`Close alert ${id}`);
+            this.appBinding.clearAlert(id);
+        };
+
         return (
             <Container className="rootContainer" fluid>
-                <SmartContractInfoView></SmartContractInfoView>
-                <hr/>
+                <SmartContractInfoView contractInfo={this.state.contractInfo}></SmartContractInfoView>
                 <Tab.Container id="smart-contract-functions" defaultActiveKey={this.state.activeKey} onSelect={setActiveKey}>
 					<Row>
 						<Col sm={3}>
@@ -113,18 +143,34 @@ export class App extends React.Component<AppProps, AppState> {
 							<Tab.Content>
                                 {this.state.executeFunctions.map((func, idx) =>
                                     <Tab.Pane eventKey={func.name} active={isActiveKey(func.name)}>
-                                        <SmartContractFunctionView function={func} index={idx}></SmartContractFunctionView>
+                                        <SmartContractFunctionView function={func} index={idx} signingKeys={this.state.signingKeys}></SmartContractFunctionView>
                                     </Tab.Pane>
                                 )}
                                 {this.state.queryFunctions.map((func, idx) =>
                                     <Tab.Pane eventKey={func.name} active={isActiveKey(func.name)}>
-                                        <SmartContractFunctionView function={func} index={idx}></SmartContractFunctionView>
+                                        <SmartContractFunctionView function={func} index={idx} signingKeys={this.state.signingKeys}></SmartContractFunctionView>
                                     </Tab.Pane>
                                 )}
 							</Tab.Content>
 						</Col>
 					</Row>
 				</Tab.Container>
+                <Row>
+                    <Col>
+                        <Container className="alertContainer" style={{maxWidth: "initial"}}>
+                            {this.state.alerts.map((alert, idx) => 
+                                <Row>
+                                    <Col>
+                                        <Alert variant={alert.type} dismissible={alert.dismissable} onClose={() => {clearAlert(alert.id)}}>
+                                            <Alert.Heading>{alert.title}</Alert.Heading>
+                                            <p>{alert.body}</p>
+                                        </Alert>
+                                    </Col>
+                                </Row>
+                            )}
+                        </Container>
+                    </Col>
+                </Row>
             </Container>
         );
     }

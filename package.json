@@ -11,43 +11,53 @@
 	],
 	"activationEvents": [
 		"*",
-		"onCommand:provenance-code-extension.build",
-		"onCommand:provenance-code-extension.compile",
-		"onCommand:provenance-code-extension.contract-info",
-		"onCommand:provenance-code-extension.instantiate-or-migrate",
-		"onCommand:provenance-code-extension.open-terminal",
-		"onCommand:provenance-code-extension.run",
-		"onCommand:provenance-code-extension.store"
+		"onCommand:provenance.build",
+		"onCommand:provenance.compile",
+		"onCommand:provenance.contract-info",
+		"onCommand:provenance.get-keys",
+		"onCommand:provenance.instantiate-or-migrate",
+		"onCommand:provenance.new-smart-contract",
+		"onCommand:provenance.open-terminal",
+		"onCommand:provenance.run",
+		"onCommand:provenance.store"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
 		"commands": [
 			{
-				"command": "provenance-code-extension.build",
+				"command": "provenance.build",
 				"title": "Provenance: Build & Upload Smart Contract"
 			},
 			{
-				"command": "provenance-code-extension.compile",
+				"command": "provenance.compile",
 				"title": "Provenance: Compile Smart Contract"
 			},
 			{
-				"command": "provenance-code-extension.contract-info",
+				"command": "provenance.contract-info",
 				"title": "Provenance: Contract Info"
 			},
 			{
-				"command": "provenance-code-extension.instantiate-or-migrate",
+				"command": "provenance.get-keys",
+				"title": "Provenance: Get Keys"
+			},
+			{
+				"command": "provenance.instantiate-or-migrate",
 				"title": "Provenance: Instantiate or Migrate Smart Contract"
 			},
 			{
-				"command": "provenance-code-extension.open-terminal",
+				"command": "provenance.new-smart-contract",
+				"title": "Provenance: New Smart Contract"
+			},
+			{
+				"command": "provenance.open-terminal",
 				"title": "Provenance: Open Terminal"
 			},
 			{
-				"command": "provenance-code-extension.run",
+				"command": "provenance.run",
 				"title": "Provenance: Run Smart Contract"
 			},
 			{
-				"command": "provenance-code-extension.store",
+				"command": "provenance.store",
 				"title": "Provenance: Store Smart Contract"
 			}
 		],
@@ -94,6 +104,11 @@
 					"default": "auto",
 					"description": "Gas limit to set per-transaction. Set to 'auto' to calculate sufficient gas automatically (--gas)."
 				},
+				"provenance.gasAdjustment": {
+					"type": "number",
+					"default": 1.4,
+					"description": "Adjustment factor to be multiplied against the estimate returned by the tx simulation (--gas-adjustment)."
+				},
 				"provenance.homeDir": {
 					"type": "string",
 					"default": "",
@@ -133,7 +148,38 @@
 					"description": "Indicates this command should use the testnet configuration (--test-net)."
 				}
 			}
-		}
+		},
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "provenance",
+					"title": "Provenance",
+					"icon": "media/provenance.svg"
+				}
+			]
+		},
+		"views": {
+			"provenance": [
+				{
+					"id": "project",
+					"name": "Project"
+				},
+				{
+					"id": "contracts",
+					"name": "Contracts"
+				},
+				{
+					"id": "network",
+					"name": "Network"
+				}
+			]
+		},
+		"viewsWelcome": [
+			{
+				"view": "project",
+				"contents": "Provenance is a distributed, proof-of-stake blockchain designed for financial service industries. To learn more about Provenance [read our docs](https://docs.provenance.io/).\n\nStart developing a smart contract for Provenance from the template:\n[New Smart Contract](command:provenance.new-smart-contract)"
+			}
+		]
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
@@ -183,6 +229,7 @@
 		"react-json-view": "^1.21.3",
 		"react-redux": "^7.2.4",
 		"rxjs": "^7.0.1",
+		"simple-git": "^2.39.0",
 		"uuid": "^8.3.2"
 	}
 }

@@ -12,10 +12,14 @@ export default class Utils {
         return camel.charAt(0).toUpperCase() + camel.slice(1);
     }
 
-    static runFunction (func: SmartContractFunction, args: any): Promise<any> {
+    static runFunction (func: SmartContractFunction, args: any, key: (string | undefined)): Promise<any> {
         switch (func.type) {
             case SmartContractFunctionType.Execute: {
-                return Utils.execute(func, args);
+                if (key) {
+                    return Utils.executeAs(func, args, key);
+                } else {
+                    return Utils.execute(func, args);
+                }
             }
 
             case SmartContractFunctionType.Query: {
@@ -33,6 +37,11 @@ export default class Utils {
     static execute (func: SmartContractFunction, args: any): Promise<any> {
         const appBinding: RunViewAppBinding = RunViewAppBinding.getReactInstance();
         return appBinding.executeFunction(func, args);
+    }
+
+    static executeAs (func: SmartContractFunction, args: any, key: string): Promise<any> {
+        const appBinding: RunViewAppBinding = RunViewAppBinding.getReactInstance();
+        return appBinding.executeFunctionAs(func, args, key);
     }
 
     static query (func: SmartContractFunction, args: any): Promise<any> {

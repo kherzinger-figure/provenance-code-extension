@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import * as child_process from 'child_process';
 import * as path from 'path';
+import { URL } from 'url';
+import SimpleGit, { RemoteWithRefs } from 'simple-git';
 
 import { ProvenanceConfig } from './ProvenanceClient'
 
@@ -237,6 +239,47 @@ export class Utils {
         });
 
         return promise;
+    }
+
+    static isValidUrl(url: string): boolean {
+        try {
+          new URL(url);
+        } catch (e) {
+          console.error(e);
+          return false;
+        }
+        return true;
+    };
+
+    static getRepoRemoteUrl(): Promise<string> {
+        return new Promise<string>((resolve, reject) => {
+            const git = SimpleGit(Utils.getWorkspaceFolder());
+            git.getRemotes(true).then((remotes: RemoteWithRefs[]) => {
+                var originRemote: string = '';
+                remotes.forEach((remote) => {
+                    if (remote.name == 'origin') {
+                        originRemote = remote.refs.fetch;
+                    }
+                });
+                if (originRemote.length > 0) {
+                    if (!Utils.isValidUrl(originRemote)) {
+                        if (originRemote.startsWith('git@github.com:')) {
+                            originRemote = originRemote.replace('git@github.com:', 'https://github.com/')
+                        }
+                        console.log(`originRemote=${originRemote}`);
+                    }
+                    if (Utils.isValidUrl(originRemote)) {
+                        resolve(originRemote);
+                    } else {
+                        reject(new Error('Origin url appears invalid.'));
+                    }
+                } else {
+                    reject(new Error('Origin remote not found. Workspace not a git repo?'));
+                }
+            }).catch((err) => {
+                reject(err);
+            });
+        });
     }
 
 }

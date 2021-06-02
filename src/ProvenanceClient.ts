@@ -58,6 +58,48 @@ export interface Contract {
 	contract_info: ContractInfo
 }
 
+export interface Key {
+	name: string,
+	type: string,
+	address: string,
+	pubkey: string,
+	mnemonic: string,
+	threshold: number
+}
+
+class ProvenanceKey implements Key {
+
+	name: string = '';
+	type: string = '';
+	address: string = '';
+	pubkey: string = '';
+	mnemonic: string = '';
+	threshold: number = 0;
+
+	constructor(keyData: string[]) {
+		keyData.forEach((data) => {
+			const kvPair = data.trim().split(':');
+			kvPair[0] = kvPair[0].trim();
+			kvPair[1] = kvPair[1].trim();
+
+			if (kvPair[0] == 'name') {
+				this.name = kvPair[1].replaceAll('"', '');
+			} else if (kvPair[0] == 'type') {
+				this.type = kvPair[1].replaceAll('"', '');
+			} else if (kvPair[0] == 'address') {
+				this.address = kvPair[1].replaceAll('"', '');
+			} else if (kvPair[0] == 'pubkey') {
+				this.pubkey = kvPair[1].replaceAll('"', '');
+			} else if (kvPair[0] == 'mnemonic') {
+				this.mnemonic = kvPair[1].replaceAll('"', '');
+			} else if (kvPair[0] == 'threshold') {
+				this.threshold = Number(kvPair[1].replaceAll('"', ''));
+			}
+		});
+	}
+
+}
+
 class ProvenanceSettings {
 	adminAddress: (string | undefined) = undefined;
 	broadcastMode: ('sync' | 'async' | 'block' | undefined) = undefined;
@@ -65,6 +107,7 @@ class ProvenanceSettings {
 	clientBinary: (string | undefined) = undefined;
 	defaultFees: (number | undefined) = 0;
 	gasLimit: (number | 'auto' | undefined) = undefined;
+	gasAdjustment: (number | undefined) = 1;
 	homeDir: (string | undefined) = undefined;
 	keyringBackend: (string | undefined) = undefined;
 	keyringDirectory: (string | undefined) = undefined;
@@ -75,7 +118,20 @@ class ProvenanceSettings {
 
 enum ProvenanceCommand {
 	Query = "query",
+	Keys = "keys",
 	TX = "tx",
+}
+
+enum KeysCommand {
+	Add = "add",
+	Delete = "delete",
+	Export = "export",
+	Import = "import",
+	List = "list",
+	Migrate = "migrate",
+	Mnemonic = "mnemonic",
+	Parse = "parse",
+	Show = "show",
 }
 
 enum TransactionCommand {
@@ -119,6 +175,7 @@ enum ProvenanceClientFlags {
 	Fees = "--fees",
 	From = "--from",
 	Gas = "--gas",
+	GasAdjustment = "--gas-adjustment",
 	Home = "--home",
 	KeyringBackend = "--keyring-backend",
 	KeyringDir = "--keyring-dir",
@@ -128,9 +185,11 @@ enum ProvenanceClientFlags {
 }
 
 export class Provenance {
-	storeWasm(wasmFile: string): Promise<number> {
+	storeWasm(wasmFile: string, source: string, builder: string): Promise<number> {
 		// reload the settings
 		this.loadSettings();
+
+		console.log(`Storing WASM for ${wasmFile} ${source} ${builder}`);
 
 		// build the command
 		const command = this.buildCommand([
@@ -138,9 +197,9 @@ export class Provenance {
 			TransactionCommand.WASM, 
 			WASMTransactionCommand.Store, 
 			wasmFile
-		], {
-			"--source": "https://github.com/kherzinger-figure/loan-pool",
-			"--builder": "cosmwasm/rust-optimizer:0.10.7",
+		], {}, {
+			"--source": source,
+			"--builder": builder,
 			"--instantiate-only-address": this.getAddressForKey(this.settings.signingPrivateKey || "")
 		}, true);
 
@@ -182,7 +241,7 @@ export class Provenance {
 			WASMTransactionCommand.Instantiate, 
 			codeId.toString(),
 			JSON.stringify(initArgs)
-		], {
+		], {}, {
 			"--label": `${label}`,
 			"--admin": this.settings.adminAddress || this.getAddressForKey(this.settings.signingPrivateKey || "")
 		}, true);
@@ -210,22 +269,7 @@ export class Provenance {
 			contract.address,
 			newCodeId.toString(),
 			JSON.stringify({ "migrate": { } })
-		], {}, true);
-
-		/*
-		build/provenanced tx wasm migrate tp18vd8fpwxzck93qlwghaj6arh4p7c5n89x8kskz CODE_ID \
-			'{"migrate":{}}' \
-			--from validator \
-			--keyring-backend test \
-			--home build/run/provenanced \
-			--chain-id testing \
-			--gas auto \
-			--gas-adjustment 1.4 \
-			--fees 6000nhash \
-			--broadcast-mode block \
-			--yes \
-			--testnet | jq
-		*/
+		], {}, {}, true);
 
 		const promise = new Promise<void>((resolve, reject) => {
 			Utils.runCommand(command).then (() => {
@@ -251,7 +295,7 @@ export class Provenance {
 			this.getAddressForKey(this.settings.signingPrivateKey || ""),
 			root,
 			`--restrict=${restrictChildCreation ? 'true' : 'false'}`
-		], {}, true);
+		], {}, {}, true);
 
 		const promise = new Promise<void>((resolve, reject) => {
 			let already_bound = false;
@@ -273,10 +317,16 @@ export class Provenance {
 		return promise;
 	}
 
-	execute(contract: Contract, execMsg: any): Promise<any> {
+	execute(contract: Contract, execMsg: any, key: (string | undefined)): Promise<any> {
 		const promise = new Promise<void>((resolve, reject) => {
 			// reload the settings
 			this.loadSettings();
+
+			// use the signing key if provided
+			var overrides: {[k: string]: any} = {};
+			if (key) {
+				overrides[ProvenanceClientFlags.From] = key;
+			}
 
 			// build the command
 			const command = this.buildCommandArray([
@@ -285,7 +335,7 @@ export class Provenance {
 				WASMTransactionCommand.Execute, 
 				contract.address,
 				`${JSON.stringify(execMsg)}`
-			], {}, true);
+			], overrides, {}, true);
 
 			let result: any = {};
 			let result_data: string = '';
@@ -315,7 +365,7 @@ export class Provenance {
 				WASMContractStateCommand.Smart,
 				contract.address,
 				`${JSON.stringify(queryMsg)}`
-			], {
+			], {}, {
 				'-o': 'json'
 			}, false, true);
 
@@ -334,8 +384,24 @@ export class Provenance {
 		return promise
 	}
 
+	getKeys(): Promise<Key[]> {
+		return new Promise<Key[]>((resolve, reject) => {
+			var provKeys: Key[] = [];
+
+			const listedKeys = child_process.execSync(`${this.settings.clientBinary || 'provenanced'} ${ProvenanceCommand.Keys} ${KeysCommand.List} --home ${this.settings.homeDir} ${this.settings.testNet ? ProvenanceClientFlags.TestNet : ''}`);
+			const keys = listedKeys.toString().split('- ');
+			keys.forEach((key) => {
+				if (key.length > 0) {
+					provKeys.push(new ProvenanceKey(key.trim().split(/[\r\n]+/)));
+				}
+			});
+
+			resolve(provKeys);
+		});
+	}
+
 	getAddressForKey(key: string): string {
-		const address = child_process.execSync(`${this.settings.clientBinary || 'provenanced'} keys show -a ${key} --home ${this.settings.homeDir} ${this.settings.testNet ? ProvenanceClientFlags.TestNet : ''}`);
+		const address = child_process.execSync(`${this.settings.clientBinary || 'provenanced'} ${ProvenanceCommand.Keys} ${KeysCommand.Show} -a ${key} --home ${this.settings.homeDir} ${this.settings.testNet ? ProvenanceClientFlags.TestNet : ''}`);
 		return address.toString().trim();
 	}
 
@@ -396,7 +462,7 @@ export class Provenance {
 	}
 
 	getContractByContractLabel(label: string): Promise<Contract> {
-		const promise = new Promise<Contract>((resolve, reject) => {
+		return new Promise<Contract>((resolve, reject) => {
 			// reload the settings
 			this.loadSettings();
 
@@ -432,15 +498,13 @@ export class Provenance {
 				reject(new Error(`Unable to locate contract '${label}'`));
 			}
 		});
-
-		return promise;
 	}
 
-	private buildCommand(commands: string[], args: any = {}, skipPrompt: boolean = true, isQuery: boolean = false): string {
-		return this.buildCommandArray(commands, args, skipPrompt, isQuery).join(' ');
+	private buildCommand(commands: string[], overrides: {[k: string]: any} = {}, args: any = {}, skipPrompt: boolean = true, isQuery: boolean = false): string {
+		return this.buildCommandArray(commands, overrides, args, skipPrompt, isQuery).join(' ');
 	}
 
-	private buildCommandArray(commands: string[], args: any = {}, skipPrompt: boolean = true, isQuery: boolean = false): string[] {
+	private buildCommandArray(commands: string[], overrides: {[k: string]: any} = {}, args: any = {}, skipPrompt: boolean = true, isQuery: boolean = false): string[] {
 		let cmd: string[] = [];
 
 		// the provenanced client
@@ -459,22 +523,77 @@ export class Provenance {
 
 		// add the generic arguments
 		if (!isQuery) {
-			if (this.settings.adminAddress) { cmd.push(ProvenanceClientFlags.Admin); cmd.push(this.settings.adminAddress); }
-			if (this.settings.broadcastMode) { cmd.push(ProvenanceClientFlags.BroadcastMode); cmd.push(this.settings.broadcastMode); }
+			var adminAddress = this.settings.adminAddress;
+			if (ProvenanceClientFlags.Admin in overrides) {
+				adminAddress = overrides[ProvenanceClientFlags.Admin];
+			}
+			if (adminAddress) { cmd.push(ProvenanceClientFlags.Admin); cmd.push(adminAddress); }
+
+			var broadcastMode = this.settings.broadcastMode;
+			if (ProvenanceClientFlags.BroadcastMode in overrides) {
+				broadcastMode = overrides[ProvenanceClientFlags.BroadcastMode];
+			}
+			if (broadcastMode) { cmd.push(ProvenanceClientFlags.BroadcastMode); cmd.push(broadcastMode); }
 		}
-		if (this.settings.chainId) { cmd.push(ProvenanceClientFlags.ChainId); cmd.push(this.settings.chainId); }
-		if (!isQuery) {
-			if (this.settings.defaultFees) { cmd.push(ProvenanceClientFlags.Fees); cmd.push(`${this.settings.defaultFees.toString()}nhash`); } // TODO: only for TX?
-			if (this.settings.gasLimit) { cmd.push(ProvenanceClientFlags.Gas); cmd.push(this.settings.gasLimit.toString()); }
+
+		var chainId = this.settings.chainId;
+		if (ProvenanceClientFlags.ChainId in overrides) {
+			chainId = overrides[ProvenanceClientFlags.ChainId];
 		}
-		if (this.settings.homeDir) { cmd.push(ProvenanceClientFlags.Home); cmd.push(this.settings.homeDir); }
+		if (chainId) { cmd.push(ProvenanceClientFlags.ChainId); cmd.push(chainId); }
+
 		if (!isQuery) {
-			if (this.settings.keyringBackend) { cmd.push(ProvenanceClientFlags.KeyringBackend); cmd.push(this.settings.keyringBackend); }
-			if (this.settings.keyringDirectory) { cmd.push(ProvenanceClientFlags.KeyringDir); cmd.push(this.settings.keyringDirectory); }
+			var defaultFees = this.settings.defaultFees;
+			if (ProvenanceClientFlags.Fees in overrides) {
+				defaultFees = overrides[ProvenanceClientFlags.Fees];
+			}
+			if (defaultFees) { cmd.push(ProvenanceClientFlags.Fees); cmd.push(`${defaultFees.toString()}nhash`); }
+
+			var gasLimit = this.settings.gasLimit;
+			if (ProvenanceClientFlags.Gas in overrides) {
+				gasLimit = overrides[ProvenanceClientFlags.Gas];
+			}
+			if (gasLimit) { cmd.push(ProvenanceClientFlags.Gas); cmd.push(gasLimit.toString()); }
+
+			var gasAdjustment = this.settings.gasAdjustment;
+			if (ProvenanceClientFlags.GasAdjustment in overrides) {
+				gasAdjustment = overrides[ProvenanceClientFlags.GasAdjustment];
+			}
+			if (gasAdjustment) { cmd.push(ProvenanceClientFlags.GasAdjustment); cmd.push(gasAdjustment.toString()); }
 		}
-		if (this.settings.nodeHostAddress) { cmd.push(ProvenanceClientFlags.Node); cmd.push(this.settings.nodeHostAddress); }
+
+		var homeDir = this.settings.homeDir;
+		if (ProvenanceClientFlags.Home in overrides) {
+			homeDir = overrides[ProvenanceClientFlags.Home];
+		}
+		if (homeDir) { cmd.push(ProvenanceClientFlags.Home); cmd.push(homeDir); }
+
 		if (!isQuery) {
-			if (this.settings.signingPrivateKey) { cmd.push(ProvenanceClientFlags.From); cmd.push(this.settings.signingPrivateKey); }
+			var keyringBackend = this.settings.keyringBackend;
+			if (ProvenanceClientFlags.KeyringBackend in overrides) {
+				keyringBackend = overrides[ProvenanceClientFlags.KeyringBackend];
+			}
+			if (keyringBackend) { cmd.push(ProvenanceClientFlags.KeyringBackend); cmd.push(keyringBackend); }
+
+			var keyringDirectory = this.settings.keyringDirectory;
+			if (ProvenanceClientFlags.KeyringDir in overrides) {
+				keyringDirectory = overrides[ProvenanceClientFlags.KeyringDir];
+			}
+			if (keyringDirectory) { cmd.push(ProvenanceClientFlags.KeyringDir); cmd.push(keyringDirectory); }
+		}
+
+		var nodeHostAddress = this.settings.nodeHostAddress;
+		if (ProvenanceClientFlags.Node in overrides) {
+			nodeHostAddress = overrides[ProvenanceClientFlags.Node];
+		}
+		if (nodeHostAddress) { cmd.push(ProvenanceClientFlags.Node); cmd.push(nodeHostAddress); }
+
+		if (!isQuery) {
+			var signingPrivateKey = this.settings.signingPrivateKey;
+			if (ProvenanceClientFlags.From in overrides) {
+				signingPrivateKey = overrides[ProvenanceClientFlags.From];
+			}
+			if (signingPrivateKey) { cmd.push(ProvenanceClientFlags.From); cmd.push(signingPrivateKey); }
 		}
 
 		// add flags
@@ -492,6 +611,7 @@ export class Provenance {
 		this.settings.clientBinary = config.get('clientBinary');
 		this.settings.defaultFees = config.get('defaultFees');
 		this.settings.gasLimit = config.get('gasLimit');
+		this.settings.gasAdjustment = config.get('gasAdjustment');
 		this.settings.homeDir = config.get('homeDir');
 		this.settings.keyringBackend = config.get('keyringBackend');
 		this.settings.keyringDirectory = config.get('keyringDirectory');
@@ -507,6 +627,7 @@ export class Provenance {
 			console.log(`  provenance.clientBinary = ${this.settings.clientBinary || "<unset>"}`);
 			console.log(`  provenance.defaultFees = ${this.settings.defaultFees?.toString() || "<unset>"}`);
 			console.log(`  provenance.gasLimit = ${this.settings.gasLimit || "<unset>"}`);
+			console.log(`  provenance.gasAdjustment = ${this.settings.gasAdjustment || "<unset>"}`);
 			console.log(`  provenance.homeDir = ${this.settings.homeDir || "<unset>"}`);
 			console.log(`  provenance.keyringBackend = ${this.settings.keyringBackend || "<unset>"}`);
 			console.log(`  provenance.keyringDirectory = ${this.settings.keyringDirectory || "<unset>"}`);
