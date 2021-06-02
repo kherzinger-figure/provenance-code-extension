@@ -1,19 +1,31 @@
 {
 	"name": "provenance-code-extension",
-	"displayName": "Provenance Visual Studio Code Extension",
-	"description": "Provides functionality for developing smart contracts on the Provenance blockchain.",
+	"displayName": "Provenance Blockchain WASM",
+	"description": "Smart contract development tools for the Provenance blockchain.",
 	"version": "0.0.1",
+	"publisher": "Provenance Blockchain Foundation, LLC.",
+	"author": {
+		"name" : "Kory Herzinger",
+  		"email" : "kherzinger@figure.com"
+	},
+	"icon": "media/icon.png",
 	"engines": {
 		"vscode": "^1.56.0"
 	},
 	"categories": [
 		"Other"
 	],
+	"keywords": [
+		"Provenance",
+		"Blockchain",
+		"WASM",
+		"provwasm"
+	],
 	"activationEvents": [
 		"*",
 		"onCommand:provenance.build",
+		"onCommand:provenance.chain-utils",
 		"onCommand:provenance.compile",
-		"onCommand:provenance.contract-info",
 		"onCommand:provenance.get-keys",
 		"onCommand:provenance.instantiate-or-migrate",
 		"onCommand:provenance.new-smart-contract",
@@ -29,12 +41,12 @@
 				"title": "Provenance: Build & Upload Smart Contract"
 			},
 			{
-				"command": "provenance.compile",
-				"title": "Provenance: Compile Smart Contract"
+				"command": "provenance.chain-utils",
+				"title": "Provenance: Chain Utils"
 			},
 			{
-				"command": "provenance.contract-info",
-				"title": "Provenance: Contract Info"
+				"command": "provenance.compile",
+				"title": "Provenance: Compile Smart Contract"
 			},
 			{
 				"command": "provenance.get-keys",
@@ -165,8 +177,8 @@
 					"name": "Project"
 				},
 				{
-					"id": "contracts",
-					"name": "Contracts"
+					"id": "contract-history",
+					"name": "Contract History"
 				},
 				{
 					"id": "network",
@@ -186,9 +198,13 @@
 		"compile": "npm-run-all compile:*",
 		"watch": "npm-run-all -p watch:*",
 		"compile:extension": "tsc -p ./",
-		"compile:views": "webpack --mode development",
+		"compile:views": "npm-run-all compile:views:*",
+		"compile:views:chain-view": "pushd src/webviews/chain-panel; webpack --mode development; popd",
+		"compile:views:run-view": "pushd src/webviews/run-panel; webpack --mode development; popd",
 		"watch:extension": "tsc -watch -p ./",
-		"watch:views": "webpack --watch --mode development",
+		"watch:views": "npm-run-all watch:views:*",
+		"watch:views:chain-view": "pushd src/webviews/chain-panel; webpack --watch --mode development; popd",
+		"watch:views:run-view": "pushd src/webviews/run-panel; webpack --watch --mode development; popd",
 		"postinstall": "node ./node_modules/vscode/bin/install",
 		"pretest": "npm run compile && npm run lint",
 		"lint": "eslint src --ext ts",

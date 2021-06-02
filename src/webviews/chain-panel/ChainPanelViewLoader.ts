@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 
-export class RunPanelViewLoader {
+export class ChainPanelViewLoader {
 
     private panel: (vscode.WebviewPanel | undefined) = undefined;
     private extPath: string = '';
@@ -18,13 +18,13 @@ export class RunPanelViewLoader {
     showView(title: string): vscode.Webview {
         if (!this.panel) {
             this.panel = vscode.window.createWebviewPanel(
-                'run-panel',
+                'chain-panel',
                 title,
                 vscode.ViewColumn.Beside,
                 {
                     enableScripts: true,
                     localResourceRoots: [
-                        vscode.Uri.file(path.join(this.extPath, "build/run-panel"))
+                        vscode.Uri.file(path.join(this.extPath, "build/chain-panel"))
                     ]
                 }
             );
@@ -56,7 +56,7 @@ export class RunPanelViewLoader {
 
     update() {
         if (this.panel) {
-            const reactAppPathOnDisk = vscode.Uri.file(path.join(this.extPath, "build/run-panel", "runPanel.js"));
+            const reactAppPathOnDisk = vscode.Uri.file(path.join(this.extPath, "build/chain-panel", "chainPanel.js"));
             const reactAppUri = reactAppPathOnDisk.with({ scheme: "vscode-resource" });
           
             this.panel.webview.html = `
@@ -65,7 +65,7 @@ export class RunPanelViewLoader {
                     <head>
                         <meta charset="UTF-8">
                         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                        <title>Provenance: Run Contract WASM</title>
+                        <title>Provenance: Blockchain Tools</title>
                         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https:; script-src 'unsafe-eval' 'unsafe-inline' vscode-resource:; style-src vscode-resource: 'unsafe-inline';">
                         <script>
                             window.acquireVsCodeApi = acquireVsCodeApi;

@@ -4,6 +4,9 @@ import * as glob from 'glob';
 import { Utils, SmartContractFunctions } from './utils';
 import { Key, Provenance, ProvenanceConfig } from './ProvenanceClient'
 
+import { ChainViewAppBinding } from './webviews/chain-panel/app/app-binding';
+import { ChainPanelViewLoader } from './webviews/chain-panel/ChainPanelViewLoader';
+
 import { Alert, RunViewAppBinding } from './webviews/run-panel/app/app-binding';
 import { RunPanelViewLoader } from './webviews/run-panel/RunPanelViewLoader';
 
@@ -13,12 +16,15 @@ let provenance: Provenance = new Provenance();
 let lastWasmCodeId: number = -1;
 let isBusy: boolean = false;
 
+let chainPanelView: ChainPanelViewLoader;
+let chainViewApp: ChainViewAppBinding;
+
 let runPanelView: RunPanelViewLoader;
 let runViewApp: RunViewAppBinding;
 
 const buildWasmCommand = 'provenance.build';
+const chainUtilsCommand = 'provenance.chain-utils';
 const compileWasmCommand = 'provenance.compile';
-const contractInfoCommand = 'provenance.contract-info';
 const getKeysCommand = 'provenance.get-keys';
 const instantiateOrMigrateWasmCommand = 'provenance.instantiate-or-migrate';
 const openTerminalCommand = 'provenance.open-terminal';
@@ -30,7 +36,7 @@ var provenanceStatusBarItem: vscode.StatusBarItem;
 var compileWasmStatusBarItem: vscode.StatusBarItem;
 var buildWasmStatusBarItem: vscode.StatusBarItem;
 var runWasmStatusBarItem: vscode.StatusBarItem;
-var showContractInfoStatusBarItem: vscode.StatusBarItem;
+var chainUtilsStatusBarItem: vscode.StatusBarItem;
 var openTerminalStatusBarItem: vscode.StatusBarItem;
 var rightStatusBarSepItem: vscode.StatusBarItem;
 
@@ -146,8 +152,8 @@ export function activate(context: vscode.ExtensionContext) {
 	runWasmStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
 	runWasmStatusBarItem.command = runWasmCommand;
 
-	showContractInfoStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-	showContractInfoStatusBarItem.command = contractInfoCommand;
+	chainUtilsStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+	chainUtilsStatusBarItem.command = chainUtilsCommand;
 
 	openTerminalStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
 	openTerminalStatusBarItem.command = openTerminalCommand;
@@ -196,20 +202,24 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
-	let contractInfo = vscode.commands.registerCommand(contractInfoCommand, () => {
-		// TODO: show in a window somehow?
+	let chainUtils = vscode.commands.registerCommand(chainUtilsCommand, () => {
+		console.log('chainUtils 1');
+		chainViewApp = ChainViewAppBinding.getCodeInstance(chainPanelView.showView(`Provenance: Blockchain Utils`));
+		console.log('chainUtils 2');
+		chainPanelView.onDispose(() => {
+			console.log('chainPanelView.onDispose');
+			chainViewApp.unready();
+		});
+		chainPanelView.onDidChangeViewState(() => {
+			console.log('chainPanelView.onDidChangeViewState');
+			updateChainView();
+		});
 
-		const console = Utils.getConsole();
+		console.log('chainUtils 3');
 
-		Utils.loadProvenanceConfig().then((config) => {
-			provenance.getContractByContractLabel(config.contractLabel).then((contract) => {
-				console.appendLine(`Contract address: ${contract.address}`);
-				// TODO
-			}).catch((err) => {
-				vscode.window.showErrorMessage(err.message);
-			});
-		}).catch((err: Error) => {
-			vscode.window.showErrorMessage(err.message);
+		chainViewApp.waitForReady().then(() => {
+			console.log('Chain view ready!');
+			updateChainView();
 		});
 	});
 
@@ -327,8 +337,8 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(build);
+	context.subscriptions.push(chainUtils);
 	context.subscriptions.push(compile);
-	context.subscriptions.push(contractInfo);
 	context.subscriptions.push(geyKeys);
 	context.subscriptions.push(instantiateOrMigrate);
 	context.subscriptions.push(openTerminal);
@@ -342,7 +352,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(compileWasmStatusBarItem);
 	context.subscriptions.push(buildWasmStatusBarItem);
 	context.subscriptions.push(runWasmStatusBarItem);
-	context.subscriptions.push(showContractInfoStatusBarItem);
+	context.subscriptions.push(chainUtilsStatusBarItem);
 	context.subscriptions.push(openTerminalStatusBarItem);
 	context.subscriptions.push(rightStatusBarSepItem);
 	context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(updateStatusBar));
@@ -353,6 +363,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// update status bar item once at start
 	updateStatusBar();
+
+	// create the Chain View Panel
+	chainPanelView = new ChainPanelViewLoader(context.extensionPath, context);
 
 	// create the Run View Panel
 	runPanelView = new RunPanelViewLoader(context.extensionPath, context);
@@ -377,9 +390,9 @@ function updateStatusBar(): void {
 	runWasmStatusBarItem.tooltip = 'Run WASM on Provenance';
 	runWasmStatusBarItem.show();
 
-	showContractInfoStatusBarItem.text = '$(info)';
-	showContractInfoStatusBarItem.tooltip = 'Show contract info';
-	showContractInfoStatusBarItem.show();
+	chainUtilsStatusBarItem.text = '$(link)';
+	chainUtilsStatusBarItem.tooltip = 'Provenance blockchain utils';
+	chainUtilsStatusBarItem.show();
 
 	openTerminalStatusBarItem.text = '$(terminal)';
 	openTerminalStatusBarItem.tooltip = 'Open provenanced client terminal';
@@ -429,6 +442,12 @@ function updateRunView(config: ProvenanceConfig): void {
 		}).catch((err) => {
 			vscode.window.showErrorMessage(err.message);
 		});
+	}
+}
+
+function updateChainView(): void {
+	if(chainViewApp.isReady) {
+		// TODO
 	}
 }
 
